@@ -1,0 +1,25 @@
+app:
+  invite:
+    default-max-members: ${INVITE_DEFAULT_MAX_MEMBERS:100}
+    code-length: ${INVITE_CODE_LENGTH:8}
+  bootstrap-admin:
+    enabled: ${BOOTSTRAP_ADMIN_ENABLED:true}
+    username: ${BOOTSTRAP_ADMIN_USERNAME:dev-admin}
+    email: ${BOOTSTRAP_ADMIN_EMAIL:dev-admin@example.com}
+    password: ${BOOTSTRAP_ADMIN_PASSWORD:}
+    must-change-password: ${BOOTSTRAP_ADMIN_MUST_CHANGE_PASSWORD:true}
+  security:
+    dev-token-enabled: ${DEV_TOKEN_ENABLED:true}
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    show-sql: ${JPA_SHOW_SQL:true}
+    properties:
+      hibernate:
+        format_sql: ${HIBERNATE_FORMAT_SQL:true}
+
+logging:
+  level:
+    com.vote.backend: ${APP_LOG_LEVEL:DEBUG}

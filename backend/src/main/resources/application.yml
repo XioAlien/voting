@@ -1,0 +1,59 @@
+server:
+  port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
+spring:
+  config:
+    import: "optional:file:.env[.properties]"
+  application:
+    name: vote-backend
+  
+  datasource:
+    url: ${DB_URL:jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:vote_db}?${DB_QUERY:useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai}}
+    username: ${DB_USERNAME:vote_app}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      database: ${REDIS_DB:0}
+      password: ${REDIS_PASSWORD:}
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION_MS:86400000}
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+  invite:
+    default-max-members: ${INVITE_DEFAULT_MAX_MEMBERS:100}
+    code-length: ${INVITE_CODE_LENGTH:8}
+  bootstrap-admin:
+    enabled: ${BOOTSTRAP_ADMIN_ENABLED:false}
+    username: ${BOOTSTRAP_ADMIN_USERNAME:}
+    email: ${BOOTSTRAP_ADMIN_EMAIL:}
+    password: ${BOOTSTRAP_ADMIN_PASSWORD:}
+    must-change-password: ${BOOTSTRAP_ADMIN_MUST_CHANGE_PASSWORD:true}
+  security:
+    enforce-sensitive-config: ${ENFORCE_SENSITIVE_CONFIG:true}
+    dev-token-enabled: ${DEV_TOKEN_ENABLED:false}
+
+logging:
+  level:
+    com.vote.backend: INFO
