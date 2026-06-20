@@ -31,6 +31,8 @@ backend/src/main/resources/application-dev.yml
 docker-compose.override.yml
 debug-*.md
 debug-start-dev-port.md
+AGENTS.md
+PROJECT_OVERVIEW.md
 trae-debug-log-*.ndjson
 .trae/specs/
 .dbg/

@@ -29,5 +29,5 @@
 
 如果需要了解当前可交付范围，请优先查看：
 
-- [README.md](file:///d:/code/java/vote/README.md)
-- [api_contract.md](file:///d:/code/java/vote/.trae/documents/api_contract.md)
+- [README.md](file:///d:/code/java/voting/README.md)
+- [api_contract.md](file:///d:/code/java/voting/.trae/documents/api_contract.md)

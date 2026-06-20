@@ -12,6 +12,6 @@
 
 ## 当前应参考的文档
 
-- [README.md](file:///d:/code/java/vote/README.md)
-- [api_contract.md](file:///d:/code/java/vote/.trae/documents/api_contract.md)
-- [vote_tech_arch.md](file:///d:/code/java/vote/.trae/documents/vote_tech_arch.md)
+- [README.md](file:///d:/code/java/voting/README.md)
+- [api_contract.md](file:///d:/code/java/voting/.trae/documents/api_contract.md)
+- [vote_tech_arch.md](file:///d:/code/java/voting/.trae/documents/vote_tech_arch.md)

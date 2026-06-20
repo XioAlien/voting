@@ -12,7 +12,7 @@
 - `JWT_SECRET`
 - `REDIS_PASSWORD`
 
-见 [application.yml](file:///d:/code/java/vote/backend/src/main/resources/application.yml) 与 [backend/.env.example](file:///d:/code/java/vote/backend/.env.example)。
+见 [application.yml](file:///d:/code/java/voting/backend/src/main/resources/application.yml) 与 [backend/.env.example](file:///d:/code/java/voting/backend/.env.example)。
 
 ### 1.2 鉴权规则
 
@@ -28,7 +28,7 @@
 
 实现位置：
 
-- [SecurityConfig](file:///d:/code/java/vote/backend/src/main/java/com/vote/backend/security/SecurityConfig.java)
+- [SecurityConfig](file:///d:/code/java/voting/backend/src/main/java/com/vote/backend/security/SecurityConfig.java)
 
 ### 1.3 JWT 认证
 
@@ -45,8 +45,8 @@
 
 实现位置：
 
-- [JwtAuthenticationFilter](file:///d:/code/java/vote/backend/src/main/java/com/vote/backend/security/JwtAuthenticationFilter.java)
-- [RestAuthenticationEntryPoint](file:///d:/code/java/vote/backend/src/main/java/com/vote/backend/security/RestAuthenticationEntryPoint.java)
+- [JwtAuthenticationFilter](file:///d:/code/java/voting/backend/src/main/java/com/vote/backend/security/JwtAuthenticationFilter.java)
+- [RestAuthenticationEntryPoint](file:///d:/code/java/voting/backend/src/main/java/com/vote/backend/security/RestAuthenticationEntryPoint.java)
 
 ### 1.4 统一异常处理
 
@@ -62,8 +62,8 @@
 
 实现位置：
 
-- [ApiException](file:///d:/code/java/vote/backend/src/main/java/com/vote/backend/controller/ApiException.java)
-- [GlobalExceptionHandler](file:///d:/code/java/vote/backend/src/main/java/com/vote/backend/controller/GlobalExceptionHandler.java)
+- [ApiException](file:///d:/code/java/voting/backend/src/main/java/com/vote/backend/controller/ApiException.java)
+- [GlobalExceptionHandler](file:///d:/code/java/voting/backend/src/main/java/com/vote/backend/controller/GlobalExceptionHandler.java)
 
 ### 1.5 生产配置基线
 

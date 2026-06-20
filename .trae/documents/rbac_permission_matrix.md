@@ -25,6 +25,6 @@
 
 更准确的当前语义请查看：
 
-- [README.md](file:///d:/code/java/vote/README.md)
-- [api_contract.md](file:///d:/code/java/vote/.trae/documents/api_contract.md)
-- [security_baseline.md](file:///d:/code/java/vote/.trae/documents/security_baseline.md)
+- [README.md](file:///d:/code/java/voting/README.md)
+- [api_contract.md](file:///d:/code/java/voting/.trae/documents/api_contract.md)
+- [security_baseline.md](file:///d:/code/java/voting/.trae/documents/security_baseline.md)

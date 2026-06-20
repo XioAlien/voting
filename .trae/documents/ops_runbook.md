@@ -12,7 +12,7 @@
 
 ## 2. 当前配置基线
 
-后端核心配置来自 [application.yml](file:///d:/code/java/vote/backend/src/main/resources/application.yml)：
+后端核心配置来自 [application.yml](file:///d:/code/java/voting/backend/src/main/resources/application.yml)：
 
 - 端口：`8080`
 - 字符集：强制 `UTF-8`

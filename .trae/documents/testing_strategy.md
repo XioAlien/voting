@@ -6,15 +6,22 @@
 
 ### 1.1 后端
 
-当前仓库中已有的后端测试主要集中在：
+当前仓库中已有 6 个后端测试文件、32 个 `@Test`，主要包括：
 
+- `BootstrapAdminInitializerTest`
+- `DevTokenBlockFilterTest`
+- `SensitiveConfigStartupValidatorTest`
 - `VoteServiceTest`
+- `AdminInviteServicesTest`
 - `RestAuthenticationEntryPointTest`
 
 已覆盖的重点包括：
 
+- Bootstrap Admin 初始化与敏感配置校验
+- `dev-token` 在开发/生产环境下的开关限制
 - 投票多选与数据库级防重约束
-- Redis 幂等降级相关行为
+- Redis 幂等降级与部分缓存回退行为
+- 邀请码管理、确认令牌与管理员相关链路
 - `401` 入口文案区分
 
 ### 1.2 前端

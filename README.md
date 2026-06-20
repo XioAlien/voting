@@ -27,7 +27,7 @@
   - 写接口要求登录
   - `401/403` 返回统一 JSON
   - 业务异常统一走 `ApiException + GlobalExceptionHandler`
-  - Redis 不可用时对幂等与缓存链路做降级
+  - Redis 不可用时对幂等与部分缓存链路做降级
   - 投票记录具备数据库级防重约束
 
 ## 当前未实现
@@ -35,7 +35,7 @@
 以下能力当前仍未完整落地，不应作为使用预期：
 
 - 更细粒度的独立 RBAC 权限体系
-- Docker 交付与 CI 自动化流水线
+- 应用 Docker 交付与 CI 自动化流水线
 - 前端自动化测试
 
 ## 技术栈
@@ -67,7 +67,7 @@
 - `backend/src/main/resources/application.yml` 会自动导入 `backend/.env`，仓库只保留模板与非敏感默认值
 - `backend/src/main/resources/application-dev.example.yml`、`application-local.example.yml` 仅作为个人覆写模板；如需额外 profile 覆写，可参考 example 文件自行生成本地私有配置文件，但不要提交
 - 前端 `.env` 不是必需项；如需覆盖默认值，可自行创建 `frontend/.env` 配置 `VITE_API_BASE_URL`、`VITE_PROXY_TARGET`、`VITE_PORT`
-- 半容器化当前约定：
+- 当前依赖服务半容器化约定：
   - 本地后端连接 `localhost`
   - 未来全容器化时只需把 `DB_HOST` 改为 `mysql`、把 `REDIS_HOST` 改为 `redis`
 
