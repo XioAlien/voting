@@ -12,7 +12,7 @@
 
 ## 2. 当前配置基线
 
-后端核心配置来自 [application.yml](file:///d:/code/java/voting/backend/src/main/resources/application.yml)：
+后端核心配置来自 [application.yml]：
 
 - 端口：`8080`
 - 字符集：强制 `UTF-8`
@@ -26,9 +26,9 @@
 
 开发示例配置文件：
 
-- `backend/src/main/resources/application-dev.yml`
 - `backend/src/main/resources/application-dev.example.yml`
 - `backend/src/main/resources/application-local.example.yml`
+
 
 推荐的本地准备：
 
@@ -43,7 +43,13 @@
 
 - MySQL 已可连通
 - `backend/.env` 已准备完成
-- 首次启动建议使用 `local` profile，以便本地自动更新表结构
+- 如需在首次启动或空库环境下自动更新表结构，请先在本地创建 `application-local.yml`，并覆盖 `spring.jpa.hibernate.ddl-auto`
+
+注意：
+
+- 仅设置 `SPRING_PROFILES_ACTIVE=local` 并不会自动修改建表策略
+- 只有当本地实际存在 `application-local.yml`，且其中覆盖了 `spring.jpa.hibernate.ddl-auto`，例如 `update`，首次启动或空库场景下才会自动更新表结构
+- 若未创建该本地私有配置文件，应用仍会使用默认配置中的 `ddl-auto: validate`
 
 ```powershell
 cd backend
@@ -140,7 +146,7 @@ npm run build
 - `DB_PASSWORD` 是否设置
 - `JWT_SECRET` 是否设置
 - MySQL 是否可连通
-- 若出现表不存在或 Hibernate `validate` 失败，检查是否使用了 `local` profile，或是否已经准备好库表
+- 若出现表不存在或 Hibernate `validate` 失败，检查是否已实际创建 `application-local.yml` 并覆盖 `ddl-auto`，或是否已经准备好库表
 
 ### 7.3 Redis 不可用
 

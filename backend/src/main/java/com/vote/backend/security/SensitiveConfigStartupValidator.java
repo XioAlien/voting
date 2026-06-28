@@ -63,7 +63,7 @@ public class SensitiveConfigStartupValidator {
         || isBlank(bootstrapAdminEmail)
         || isBlank(bootstrapAdminPassword))) {
       throw new IllegalStateException(
-          BOOTSTRAP_ADMIN_ERR_CODE + ": 启用 bootstrap-admin 时必须同时提供用户名、邮箱和密码");
+          BOOTSTRAP_ADMIN_ERR_CODE + ": 启用 bootstrap-admin 时必须同时提供管理员用户名、邮箱和密码");
     }
 
     if (isDevOrLocal || isTest) {

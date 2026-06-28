@@ -86,6 +86,7 @@
 说明：
 
 - 默认配置中的 `spring.jpa.hibernate.ddl-auto` 为 `validate`，首次启动若没有现成表结构，建议走 `local` profile 下的本地覆盖配置
+- `application-dev.example.yml` 与 `application-local.example.yml` 仅作为模板文件，不会自动生效；如需使用对应 profile 覆写，请先在本地复制为私有配置文件，例如 `application-dev.yml` 或 `application-local.yml`
 - 前端默认会通过 Vite 代理把 `/api` 转发到 `http://localhost:8080`
 
 ### 后端
