@@ -44,10 +44,11 @@ graph TD
 | 路由 | 用途 |
 |-------|---------|
 | / | 首页，显示投票列表和导航 |
+| /create | 创建投票页面，普通登录用户可创建投票 |
 | /login | 登录页面，用户身份验证 |
 | /register | 注册页面，新用户注册 |
 | /vote/:id | 投票详情页面，显示投票选项和进行投票 |
-| /admin | 管理与创建中心；已登录用户可创建投票，管理员额外看到概览与用户管理 |
+| /admin | 管理员后台；仅管理员可访问，额外看到概览与用户管理 |
 
 ## 4.API定义
 
@@ -131,7 +132,7 @@ GET /api/votes/{id}/results
 
 ```text
 POST /api/votes/{voteId}/join
-POST /api/votes/join
+POST /api/votes/join-by-invite
 POST|DELETE /api/votes/{voteId}/leave
 GET /api/votes/{voteId}/invite
 POST /api/votes/{voteId}/invite/reset

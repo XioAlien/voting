@@ -8,8 +8,10 @@ import com.vote.backend.entity.VoteOption;
 import com.vote.backend.entity.VoteRecord;
 import com.vote.backend.dto.OptionRequest;
 import com.vote.backend.dto.VoteCreateRequest;
+import com.vote.backend.dto.VoteCreateResultDto;
 import com.vote.backend.dto.VoteDto;
 import com.vote.backend.dto.VoteDetailDto;
+import com.vote.backend.dto.VoteInviteDto;
 import com.vote.backend.dto.VoteOptionDto;
 import com.vote.backend.dto.VoteSubmitRequest;
 import com.vote.backend.repository.VoteInviteRepository;
@@ -66,6 +68,9 @@ public class VoteService {
 
   @Autowired
   private AdminConfirmationService adminConfirmationService;
+
+  @Autowired
+  private VoteInviteService voteInviteService;
 
   @Transactional
   public boolean castVote(UserPrincipal principal, Long voteId, VoteSubmitRequest request) {
@@ -239,6 +244,21 @@ public class VoteService {
     }
 
     return savedVote;
+  }
+
+  @Transactional
+  public VoteCreateResultDto createVoteWithInvite(Long userId, VoteCreateRequest request) {
+    Vote vote = createVote(userId, request);
+    VoteInvite invite = voteInviteService.prepareInviteForCreate(vote, request);
+
+    VoteCreateResultDto result = new VoteCreateResultDto();
+    result.setVote(toVoteDto(vote));
+    result.setAccessType(Boolean.TRUE.equals(invite.getEnabled()) ? "INVITE" : "PUBLIC");
+    if (Boolean.TRUE.equals(invite.getEnabled())) {
+      VoteInviteDto inviteDto = voteInviteService.toManagerDto(invite);
+      result.setInvite(inviteDto);
+    }
+    return result;
   }
 
   public List<VoteDto> getAllVotes() {
@@ -459,6 +479,25 @@ public class VoteService {
         log.warn("Redis unavailable, skip idempotency key cleanup: {}", redisEx.getMessage());
       }
     }
+  }
+
+  private VoteDto toVoteDto(Vote vote) {
+    VoteDto dto = new VoteDto();
+    dto.setId(vote.getId());
+    dto.setTitle(vote.getTitle());
+    dto.setDescription(vote.getDescription());
+    dto.setType(vote.getType());
+    dto.setStartTime(vote.getStartTime());
+    dto.setEndTime(vote.getEndTime());
+    dto.setParticipants(0);
+
+    LocalDateTime now = LocalDateTime.now();
+    if (vote.getEndTime() != null && now.isAfter(vote.getEndTime())) {
+      dto.setStatus("closed");
+    } else {
+      dto.setStatus(Boolean.TRUE.equals(vote.getIsActive()) ? "active" : "closed");
+    }
+    return dto;
   }
 
   private void requireVoteAccess(Vote vote, UserPrincipal principal, boolean writeAccess) {

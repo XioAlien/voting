@@ -3,6 +3,7 @@ package com.vote.backend.controller;
 import com.vote.backend.dto.ApiResponse;
 import com.vote.backend.dto.OptionRequest;
 import com.vote.backend.dto.VoteCreateRequest;
+import com.vote.backend.dto.VoteCreateResultDto;
 import com.vote.backend.dto.VoteDto;
 import com.vote.backend.dto.VoteDetailDto;
 import com.vote.backend.dto.VoteInviteDto;
@@ -11,7 +12,6 @@ import com.vote.backend.dto.VoteJoinRequest;
 import com.vote.backend.dto.VoteJoinResultDto;
 import com.vote.backend.dto.VoteOptionDto;
 import com.vote.backend.dto.VoteSubmitRequest;
-import com.vote.backend.entity.Vote;
 import com.vote.backend.service.VoteInviteService;
 import com.vote.backend.service.VoteService;
 import jakarta.validation.Valid;
@@ -21,8 +21,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import com.vote.backend.security.UserPrincipal;
-
-import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -65,29 +63,13 @@ public class VoteController {
   }
 
   @PostMapping
-  public ApiResponse<VoteDto> createVote(@Valid @RequestBody VoteCreateRequest request) {
+  public ApiResponse<VoteCreateResultDto> createVote(@Valid @RequestBody VoteCreateRequest request) {
     Long userId = getCurrentUserId();
     if (userId == null) {
       throw new ApiException(HttpStatus.UNAUTHORIZED, "未登录");
     }
-    Vote vote = voteService.createVote(userId, request);
-    VoteDto dto = new VoteDto();
-    dto.setId(vote.getId());
-    dto.setTitle(vote.getTitle());
-    dto.setDescription(vote.getDescription());
-    dto.setType(vote.getType());
-    dto.setStartTime(vote.getStartTime());
-    dto.setEndTime(vote.getEndTime());
-    dto.setParticipants(0);
-
-    LocalDateTime now = LocalDateTime.now();
-    if (vote.getEndTime() != null && now.isAfter(vote.getEndTime())) {
-      dto.setStatus("closed");
-    } else {
-      dto.setStatus(vote.getIsActive() ? "active" : "closed");
-    }
-
-    return ApiResponse.success("创建成功", dto);
+    VoteCreateResultDto result = voteService.createVoteWithInvite(userId, request);
+    return ApiResponse.success("创建成功", result);
   }
 
   @PostMapping("/{voteId}/options")
@@ -105,11 +87,10 @@ public class VoteController {
     return ApiResponse.success("加入成功", result);
   }
 
-  @PostMapping("/join")
-  public ApiResponse<VoteJoinResultDto> joinVoteCompat(
-      @RequestParam Long voteId,
+  @PostMapping("/join-by-invite")
+  public ApiResponse<VoteJoinResultDto> joinVoteByInvite(
       @RequestBody(required = false) VoteJoinRequest request) {
-    VoteJoinResultDto result = voteInviteService.joinVote(getCurrentPrincipal(), voteId, request);
+    VoteJoinResultDto result = voteInviteService.joinVoteByInviteCode(getCurrentPrincipal(), request);
     return ApiResponse.success("加入成功", result);
   }
 

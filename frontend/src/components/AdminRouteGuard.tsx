@@ -62,8 +62,7 @@ const AdminRouteGuard: React.FC<AdminRouteGuardProps> = ({
           <Alert
             type="info"
             showIcon
-            message="当前账号没有管理员权限"
-            description="可继续使用下方的创建投票能力；管理员专属的用户管理与全局概览仅对管理员开放。"
+            title="无权限访问"
           />
         )}
       </>

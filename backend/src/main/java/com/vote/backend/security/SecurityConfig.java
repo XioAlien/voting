@@ -70,13 +70,20 @@ public class SecurityConfig {
   public CorsConfigurationSource corsConfigurationSource() {
     String rawOrigins = environment.getProperty("app.cors.allowed-origins",
         "http://localhost:5173,http://127.0.0.1:5173");
+    String rawOriginPatterns = environment.getProperty("app.cors.allowed-origin-patterns",
+        "");
     List<String> origins = Arrays.stream(rawOrigins.split(","))
+        .map(String::trim)
+        .filter(s -> !s.isEmpty())
+        .collect(Collectors.toList());
+    List<String> originPatterns = Arrays.stream(rawOriginPatterns.split(","))
         .map(String::trim)
         .filter(s -> !s.isEmpty())
         .collect(Collectors.toList());
 
     CorsConfiguration config = new CorsConfiguration();
     config.setAllowedOrigins(origins);
+    config.setAllowedOriginPatterns(originPatterns);
     config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
     config.setAllowedHeaders(List.of("*"));
     config.setExposedHeaders(List.of("Authorization"));

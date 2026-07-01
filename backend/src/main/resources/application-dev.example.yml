@@ -1,6 +1,7 @@
 app:
   invite:
     default-max-members: ${INVITE_DEFAULT_MAX_MEMBERS:100}
+    default-expire-hours: ${INVITE_DEFAULT_EXPIRE_HOURS:168}
     code-length: ${INVITE_CODE_LENGTH:8}
   bootstrap-admin:
     enabled: ${BOOTSTRAP_ADMIN_ENABLED:true}

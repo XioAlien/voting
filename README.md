@@ -121,10 +121,11 @@ npm run dev
 ## 前端路由
 
 - `/`：投票列表首页
+- `/create`：创建投票页，普通登录用户可创建投票
 - `/vote/:id`：投票详情与结果页
 - `/login`：登录页
 - `/register`：注册页
-- `/admin`：管理与创建中心，已集成管理员概览、用户管理和创建投票入口
+- `/admin`：管理员后台，仅管理员可访问；包含概览、用户管理和管理员视角的创建入口
 
 ## 主要接口
 
@@ -140,7 +141,7 @@ npm run dev
 - `GET /api/votes/{id}/results`
 - `POST /api/votes`
 - `POST /api/votes/{voteId}/join`
-- `POST /api/votes/join`
+- `POST /api/votes/join-by-invite`
 - `POST /api/votes/{voteId}/leave`
 - `DELETE /api/votes/{voteId}/leave`
 - `GET /api/votes/{voteId}/invite`

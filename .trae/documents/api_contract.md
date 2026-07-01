@@ -181,13 +181,14 @@
 ### 4.5 邀请码加入与退出
 
 - `POST /api/votes/{voteId}/join`
-- `POST /api/votes/join`：兼容入口，使用 `voteId` 请求参数
+- `POST /api/votes/join-by-invite`：仅凭邀请码加入投票
 - `POST /api/votes/{voteId}/leave`
 - `DELETE /api/votes/{voteId}/leave`
 
 说明：
 
-- 加入接口支持携带邀请码请求体
+- `POST /api/votes/{voteId}/join` 用于已知目标投票时加入
+- `POST /api/votes/join-by-invite` 用于仅凭邀请码定位并加入投票
 - 退出接口同时支持 `POST` 和 `DELETE`
 
 ### 4.6 邀请码管理
