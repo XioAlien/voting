@@ -1,95 +1,214 @@
 # Vote 投票系统
 
-一个基于 Spring Boot 与 React 的投票系统。当前已包含注册登录、投票创建、邀请码加入、管理员基础能力、dev-token 调试入口，以及统一异常处理与基础安全基线。
+一个基于 Spring Boot 3 和 React 18 的面向课程实践与后端工程学习的全栈投票系统，重点实现认证鉴权、邀请码访问控制、投票业务管理及管理员后台等核心能力。
 
-## 当前实现范围
+## 预览
 
-- 用户认证：支持用户名或邮箱登录、用户注册、JWT 鉴权
-- 投票能力：
-  - 查看投票列表
-  - 查看投票详情与结果
-  - 登录后创建投票
-  - 登录后为允许自定义选项的投票添加选项
-  - 登录后提交投票
-  - 邀请码加入/退出投票
-  - 创建者或管理员管理邀请码、重置邀请码、配置成员上限与过期时间
-- 管理员能力：
-  - 管理员概览看板
-  - 用户列表、用户基础信息更新、角色调整
-  - 投票规则调整、终止投票
-  - 二次确认令牌与审计日志回填
-- 开发辅助：
-  - `dev/local` 环境可按开关启用 `dev-token`
-- 投票模式：
-  - `CHOICE`：单选或多选
-  - `SLIDER`：按选项评分
-- 安全与稳定性：
-  - 写接口要求登录
-  - `401/403` 返回统一 JSON
-  - 业务异常统一走 `ApiException + GlobalExceptionHandler`
-  - Redis 不可用时对幂等与部分缓存链路做降级
-  - 投票记录具备数据库级防重约束
+| 登录页 | 首页 |
+| --- | --- |
+| ![登录页预览](./pictures/登录页.png) | ![首页预览](./pictures/首页.png) |
+| 投票详情页 | 管理员后台 |
+| ![投票详情页预览](./pictures/投票详情.png) | ![管理员后台预览](./pictures/管理后台.png) |
 
-## 当前未实现
+## 项目简介
 
-以下能力当前仍未完整落地，不应作为使用预期：
+- Spring Boot + React 前后端分离，接口统一返回 JSON 响应
+- Spring Security + JWT 无状态认证，写接口默认要求登录
+- 支持 `PUBLIC` / `INVITE` 两种访问方式，以及 `CHOICE` / `SLIDER` 两种投票模式
+- 创建者或管理员可管理邀请码、重置邀请码、配置成员上限与过期时间
+- 管理员后台包含概览看板、用户管理、投票规则调整与终止投票
+- Redis 用于投票幂等与部分缓存链路，失效时具备降级处理
+- 业务异常统一由 `ApiException + GlobalExceptionHandler` 收口
 
-- 更细粒度的独立 RBAC 权限体系
-- 应用 Docker 交付与 CI 自动化流水线
-- 前端自动化测试
+## 系统架构
+
+```mermaid
+flowchart LR
+    Browser[Browser] --> React[React 18 + Vite]
+    React --> Axios[Axios / API Client]
+    Axios --> Security[Spring Security + JWT]
+    Security --> Controller[Controller]
+    Controller --> Service[Service]
+    Service --> Repository[Repository / JPA]
+    Repository --> MySQL[(MySQL)]
+    Service --> Redis[(Redis)]
+```
+
+## 核心业务流程
+
+```mermaid
+flowchart TD
+    A[前端发起请求] --> B{请求类型}
+    B -->|登录/注册| C[认证接口返回 JWT]
+    B -->|公开读取| D[读取投票列表/详情]
+    B -->|写操作| E[携带 JWT 调用受保护接口]
+
+    D --> F[Controller -> Service -> Repository]
+    F --> G[(MySQL / Redis)]
+    G --> H[统一 JSON 响应]
+
+    E --> I[Spring Security 校验身份与权限]
+    I -->|失败| J[返回 401 / 403 JSON]
+    I -->|通过| K[进入业务服务层]
+
+    K --> L{核心业务类型}
+    L -->|邀请码加入| M[校验邀请码有效性并写入 VoteMembership]
+    L -->|提交投票| N[Redis 幂等控制 + 写入 VoteRecord]
+    L -->|创建/管理| O[保存投票、选项或管理操作]
+
+    M --> P[(MySQL)]
+    N --> P
+    O --> P
+    P --> Q[数据库约束兜底防重复/冲突]
+    Q --> H
+
+    K --> R[异常进入 GlobalExceptionHandler]
+    R --> H
+```
+
+## 数据库 ER 图
+
+```mermaid
+erDiagram
+    User {
+        bigint id PK
+        string username
+        string email
+        string role
+        boolean is_builtin_admin
+        boolean must_change_password
+    }
+
+    Vote {
+        bigint id PK
+        bigint creator_id FK
+        string title
+        string vote_type
+        boolean is_active
+        datetime start_time
+        datetime end_time
+    }
+
+    VoteOption {
+        bigint id PK
+        bigint vote_id FK
+        bigint creator_id FK
+        string option_text
+        int sort_order
+        int max_score
+    }
+
+    VoteRecord {
+        bigint id PK
+        bigint user_id FK
+        bigint vote_id FK
+        bigint option_id FK
+        int score
+        datetime voted_at
+    }
+
+    VoteInvite {
+        bigint vote_id PK,FK
+        boolean is_enabled
+        int code_version
+        string code_hash
+        datetime expires_at
+        int max_members
+        bigint reset_by FK
+    }
+
+    VoteMembership {
+        bigint id PK
+        bigint vote_id FK
+        bigint user_id FK
+        string status
+        int joined_code_version
+        datetime joined_at
+        datetime left_at
+    }
+
+    VoteDeletionLog {
+        bigint id PK
+        bigint vote_id
+        bigint operator_id FK
+        string vote_title
+        string reason
+        datetime deleted_at
+    }
+
+    AdminAuditLog {
+        bigint id PK
+        bigint operator_id
+        string operator_role
+        string action
+        string target_type
+        string target_id
+        boolean confirmed
+        datetime created_at
+    }
+
+    User ||--o{ Vote : creates
+    Vote ||--o{ VoteOption : contains
+    User ||--o{ VoteOption : adds
+    User ||--o{ VoteRecord : submits
+    Vote ||--o{ VoteRecord : receives
+    VoteOption ||--o{ VoteRecord : records
+    Vote ||--o| VoteInvite : configures
+    User ||--o{ VoteInvite : resets
+    User ||--o{ VoteMembership : joins
+    Vote ||--o{ VoteMembership : has_members
+    User ||--o{ VoteDeletionLog : deletes
+```
 
 ## 技术栈
 
-- 后端：Java 17、Spring Boot 3.2.x、Spring Security、Spring Data JPA、JJWT、MySQL、Redis
-- 前端：React 18、TypeScript、Vite、React Router、Ant Design
+- 后端：Java 17, Spring Boot 3.2.4, Spring Security, Spring Data JPA, Bean Validation, JJWT, MySQL, Redis
+- 前端：React 18, TypeScript, Vite, React Router, Ant Design, Axios
+- 工具链：Maven, npm, Docker Compose（仅用于启动 MySQL / Redis 依赖）
 
-## 目录结构
+## 项目结构
 
 ```text
 .
 ├─ backend/                 # Spring Boot 后端
 ├─ frontend/                # React + Vite 前端
-├─ .trae/documents/         # 当前维护中的详细文档
+├─ docker-compose.yml       # MySQL / Redis 依赖编排
+└─ .trae/documents/         # 详细设计与运维文档
 ```
 
-## 环境要求
+## 快速开始
+
+### 1. 环境要求
 
 - Java 17
 - Maven 3.9+
 - Node.js 18+ 与 npm
 - MySQL 8.x
 - Redis
-- 可选：Docker Desktop / Docker Engine（如你希望用容器启动依赖）
+- 可选：Docker Desktop / Docker Engine（如需用容器启动依赖）
 
-## 配置说明
+### 2. 准备后端配置
 
-- 将 `backend/.env.example` 复制为 `backend/.env`，填写本地占位值后再启动依赖和后端
-- `backend/src/main/resources/application.yml` 会自动导入 `backend/.env`，仓库只保留模板与非敏感默认值
-- `backend/src/main/resources/application-dev.example.yml`、`application-local.example.yml` 仅作为个人覆写模板；如需额外 profile 覆写，可参考 example 文件自行生成本地私有配置文件，但不要提交
-- 前端 `.env` 不是必需项；如需覆盖默认值，可自行创建 `frontend/.env` 配置 `VITE_API_BASE_URL`、`VITE_PROXY_TARGET`、`VITE_PORT`
-- 当前依赖服务半容器化约定：
-  - 本地后端连接 `localhost`
-  - 未来全容器化时只需把 `DB_HOST` 改为 `mysql`、把 `REDIS_HOST` 改为 `redis`
-
-## 启动方式
-
-### 推荐：手动启动
-
-当前已跟踪仓库内容下，建议按以下顺序手动启动：
-
-1. 准备 MySQL 与 Redis，并确保和 `backend/.env` 中的配置一致
-2. 将 `backend/.env.example` 复制为 `backend/.env`
-3. 如是首次启动或空库环境，可参考 `application-local.example.yml` 自行准备本地 profile 覆写文件
-4. 使用 `local` profile 启动后端
-5. 安装前端依赖并启动前端开发服务
+```powershell
+cd backend
+Copy-Item .env.example .env
+```
 
 说明：
 
-- 默认配置中的 `spring.jpa.hibernate.ddl-auto` 为 `validate`，首次启动若没有现成表结构，建议走 `local` profile 下的本地覆盖配置
-- `application-dev.example.yml` 与 `application-local.example.yml` 仅作为模板文件，不会自动生效；如需使用对应 profile 覆写，请先在本地复制为私有配置文件，例如 `application-dev.yml` 或 `application-local.yml`
-- 前端默认会通过 Vite 代理把 `/api` 转发到 `http://localhost:8080`
+- `backend/.env` 需要填写本地数据库、Redis 和 JWT 相关配置
+- `application-dev.example.yml` 与 `application-local.example.yml` 只是模板文件；如需 profile 覆写，请先复制为本地私有配置文件再使用
+- 默认 `spring.jpa.hibernate.ddl-auto=validate`，首次启动或空库场景通常需要参考 `application-local.example.yml` 做本地覆写
 
-### 后端
+### 3. 启动依赖服务
+
+如果本机已经有可用的 MySQL 和 Redis，可以跳过这一步。
+
+```powershell
+docker compose up -d
+```
+
+### 4. 启动后端
 
 ```powershell
 cd backend
@@ -97,15 +216,7 @@ $env:SPRING_PROFILES_ACTIVE="local"
 mvn spring-boot:run
 ```
 
-或先打包再运行：
-
-```powershell
-cd backend
-mvn -DskipTests package
-java -jar .\target\backend-0.0.1-SNAPSHOT.jar --spring.datasource.password=你的数据库密码 --jwt.secret=长度足够的本地密钥
-```
-
-### 前端
+### 5. 启动前端
 
 ```powershell
 cd frontend
@@ -118,6 +229,27 @@ npm run dev
 - 前端：`http://localhost:5173/`
 - 后端：`http://localhost:8080/`
 
+更完整的环境准备、配置说明和常见问题见 [.trae/documents/ops_runbook.md](.trae/documents/ops_runbook.md)。
+
+## 当前实现范围
+
+当前已实现：
+
+- 用户注册、用户名或邮箱登录、JWT 鉴权
+- 投票列表、投票详情、投票结果
+- 登录后创建投票
+- 登录后提交投票、为允许自定义选项的投票添加选项
+- 邀请码加入/退出投票
+- 创建者或管理员管理邀请码、重置邀请码、配置成员上限与过期时间
+- 管理员概览、用户管理、投票规则调整、终止投票
+- `dev/local` 环境按开关启用 `dev-token`
+
+当前未完整落地：
+
+- 更细粒度的独立 RBAC 权限体系
+- 应用全量 Docker 交付与 CI 自动化流水线
+- 前端自动化测试
+
 ## 前端路由
 
 - `/`：投票列表首页
@@ -125,9 +257,9 @@ npm run dev
 - `/vote/:id`：投票详情与结果页
 - `/login`：登录页
 - `/register`：注册页
-- `/admin`：管理员后台，仅管理员可访问；包含概览、用户管理和管理员视角的创建入口
+- `/admin`：管理员后台，仅管理员可访问
 
-## 主要接口
+## 核心接口
 
 ### 认证
 
@@ -138,62 +270,44 @@ npm run dev
 ### 投票
 
 - `GET /api/votes`
-- `GET /api/votes/{id}/results`
 - `POST /api/votes`
+- `POST /api/votes/{voteId}/vote`
 - `POST /api/votes/{voteId}/join`
 - `POST /api/votes/join-by-invite`
-- `POST /api/votes/{voteId}/leave`
-- `DELETE /api/votes/{voteId}/leave`
 - `GET /api/votes/{voteId}/invite`
-- `PUT /api/votes/{voteId}/invite/settings`
-- `PATCH /api/votes/{voteId}/invite/settings`
-- `POST /api/votes/{voteId}/invite/reset`
-- `POST /api/votes/{voteId}/options`
-- `POST /api/votes/{voteId}/vote`
 
 ### 管理员
 
 - `GET /api/admin/dashboard`
-- `POST /api/admin/confirm`
-- `POST /api/admin/confirmations`
 - `GET /api/admin/users`
-- `PUT /api/admin/users/{userId}`
-- `PATCH /api/admin/users/{userId}`
-- `PUT /api/admin/users/{userId}/role`
 - `PATCH /api/admin/users/{userId}/role`
-- `PUT /api/admin/users/{userId}/status`
-- `PATCH /api/admin/users/{userId}/status`
-- `DELETE /api/admin/users`
-- `PUT /api/admin/votes/{voteId}/rule`
-- `PATCH /api/admin/votes/{voteId}/rule`
 - `POST /api/admin/votes/{voteId}/terminate`
 
-更完整的请求与响应示例见 [.trae/documents/api_contract.md](.trae/documents/api_contract.md)。
+完整接口、请求参数与响应示例见 [.trae/documents/api_contract.md](.trae/documents/api_contract.md)。
 
-## 当前鉴权规则
+## 测试
 
-- 放行：
-  - `POST /api/auth/login`
-  - `POST /api/auth/register`
-  - `GET|POST /api/auth/dev-token`
-  - `OPTIONS /**`
-  - `GET /api/votes/**`（邀请码投票会按成员关系返回 `403`）
-- 需要登录：
-  - 其他所有写接口
-- 需要管理员权限：
-  - `/api/admin/**`
-- 受环境与开关双重限制：
-  - `/api/auth/dev-token`
+当前后端包含 `6` 个测试类、`35` 个 `@Test`，主要分为两类：业务服务测试与安全/启动保护测试。
 
-安全语义：
+### 测试分类
 
-- `400`：登录凭证错误、参数错误、校验失败
-- `401`：未登录、token 无效、token 过期
-- `403`：已登录但无权限
-- `404`：资源不存在
-- `409`：业务状态冲突
+- 业务服务测试：`2` 个测试类、`21` 个 `@Test`
+  - `VoteServiceTest`：覆盖创建投票、读取详情、选择型/评分型投票、重复选项拦截、数据库唯一约束冲突翻译等
+  - `AdminInviteServicesTest`：覆盖管理员二次确认、概览统计、邀请码默认值、邀请码加入、仅凭邀请码加入等
+- 安全与启动保护测试：`4` 个测试类、`14` 个 `@Test`
+  - `RestAuthenticationEntryPointTest`：验证未登录、token 过期、token 无效时的统一 `401` JSON 响应
+  - `DevTokenBlockFilterTest`：验证 `dev-token` 只能在 `dev/local` 环境访问
+  - `SensitiveConfigStartupValidatorTest`：验证敏感配置缺失、越权启用 `dev-token`、bootstrap admin 配置不完整时启动失败
+  - `BootstrapAdminInitializerTest`：验证内置管理员的创建、对齐更新和冲突保护
 
-## 质量检查
+### 示例用例
+
+- 投票业务：`VoteServiceTest#createVote_ShouldCreateVoteAndOptions`
+- 评分型投票：`VoteServiceTest#castVote_Slider_ShouldCalculateScoresCorrectly`
+- 重复选择拦截：`VoteServiceTest#castVote_Choice_ShouldRejectDuplicateOptionIds`
+- 邀请码加入：`AdminInviteServicesTest#joinVoteByInviteCode_ShouldResolveVoteAndActivateMembership`
+- 未登录响应：`RestAuthenticationEntryPointTest#commence_ShouldReturnDefaultUnauthorizedMessage`
+- 启动配置保护：`SensitiveConfigStartupValidatorTest#validate_ShouldThrowS1002_WhenDevTokenEnabledOutsideDevOrLocal`
 
 ### 后端
 
@@ -219,10 +333,16 @@ npm run build
 ## 文档索引
 
 - 文档总览：[.trae/documents/README.md](.trae/documents/README.md)
+- 架构说明：[.trae/documents/vote_tech_arch.md](.trae/documents/vote_tech_arch.md)
 - API 契约：[.trae/documents/api_contract.md](.trae/documents/api_contract.md)
 - 运维手册：[.trae/documents/ops_runbook.md](.trae/documents/ops_runbook.md)
 - 安全基线：[.trae/documents/security_baseline.md](.trae/documents/security_baseline.md)
 - 测试策略：[.trae/documents/testing_strategy.md](.trae/documents/testing_strategy.md)
-- 架构说明：[.trae/documents/vote_tech_arch.md](.trae/documents/vote_tech_arch.md)
+
+## 许可证
+
+本项目采用 [MIT License](./LICENSE)。
+
+
 
 

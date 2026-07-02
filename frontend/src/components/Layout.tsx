@@ -94,7 +94,7 @@ const Layout: React.FC = () => {
         <Outlet />
       </Content>
       <Footer className="text-center text-gray-500 mt-auto">
-        VoteSystem ©2026 Created by Web Development Agent
+        VoteSystem ©2026
       </Footer>
     </AntLayout>
   )
