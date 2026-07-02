@@ -24,64 +24,70 @@
 
 ```mermaid
 flowchart LR
-    Browser[Browser] --> React[React 18 + Vite]
-    React --> Axios[Axios / API Client]
-    Axios --> Security[Spring Security + JWT]
-    Security --> Controller[Controller]
-    Controller --> Service[Service]
-    Service --> Repository[Repository / JPA]
-    Repository --> MySQL[(MySQL)]
-    Service --> Redis[(Redis)]
+    browser[浏览器]
+    frontend[React 前端]
+    client[Axios 请求层]
+    security[Spring Security]
+    controller[Controller]
+    service[Service]
+    repository[JPA Repository]
+    mysql[(MySQL)]
+    redis[(Redis)]
+
+    browser --> frontend
+    frontend --> client
+    client --> security
+    security --> controller
+    controller --> service
+    service --> repository
+    repository --> mysql
+    service --> redis
 ```
 
 ## 核心业务流程
 
 ```mermaid
 flowchart TD
-    A[前端发起请求] --> B{请求类型}
-    B -->|登录/注册| C[认证接口返回 JWT]
-    B -->|公开读取| D[读取投票列表/详情]
-    B -->|写操作| E[携带 JWT 调用受保护接口]
+    start[前端发起请求] --> kind{请求类型}
+    kind -->|登录或注册| auth[返回 JWT]
+    kind -->|公开读取| read[读取投票列表或详情]
+    kind -->|写操作| write[进入受保护接口]
 
-    D --> F[Controller -> Service -> Repository]
-    F --> G[(MySQL / Redis)]
-    G --> H[统一 JSON 响应]
+    read --> query[查询业务数据]
+    query --> store[(MySQL / Redis)]
+    store --> ok[返回统一响应]
 
-    E --> I[Spring Security 校验身份与权限]
-    I -->|失败| J[返回 401 / 403 JSON]
-    I -->|通过| K[进入业务服务层]
+    write --> verify[校验 JWT 与权限]
+    verify -->|失败| deny[返回 401 或 403]
+    verify -->|通过| biz{业务类型}
 
-    K --> L{核心业务类型}
-    L -->|邀请码加入| M[校验邀请码有效性并写入 VoteMembership]
-    L -->|提交投票| N[Redis 幂等控制 + 写入 VoteRecord]
-    L -->|创建/管理| O[保存投票、选项或管理操作]
+    biz --> join[邀请码加入]
+    biz --> submit[提交投票]
+    biz --> manage[创建或管理]
 
-    M --> P[(MySQL)]
-    N --> P
-    O --> P
-    P --> Q[数据库约束兜底防重复/冲突]
-    Q --> H
+    join --> save[(MySQL)]
+    submit --> idem[Redis 幂等控制]
+    idem --> save
+    manage --> save
+    save --> ok
 
-    K --> R[异常进入 GlobalExceptionHandler]
-    R --> H
+    biz --> ex[异常进入 GlobalExceptionHandler]
+    ex --> ok
 ```
 
 ## 数据库 ER 图
 
 ```mermaid
 erDiagram
-    User {
-        bigint id PK
+    USER {
+        bigint id
         string username
         string email
         string role
-        boolean is_builtin_admin
-        boolean must_change_password
     }
 
-    Vote {
-        bigint id PK
-        bigint creator_id FK
+    VOTE {
+        bigint id
         string title
         string vote_type
         boolean is_active
@@ -89,76 +95,51 @@ erDiagram
         datetime end_time
     }
 
-    VoteOption {
-        bigint id PK
-        bigint vote_id FK
-        bigint creator_id FK
+    VOTE_OPTION {
+        bigint id
         string option_text
         int sort_order
         int max_score
     }
 
-    VoteRecord {
-        bigint id PK
-        bigint user_id FK
-        bigint vote_id FK
-        bigint option_id FK
+    VOTE_RECORD {
+        bigint id
         int score
         datetime voted_at
     }
 
-    VoteInvite {
-        bigint vote_id PK,FK
+    VOTE_INVITE {
+        bigint vote_id
         boolean is_enabled
         int code_version
         string code_hash
         datetime expires_at
         int max_members
-        bigint reset_by FK
     }
 
-    VoteMembership {
-        bigint id PK
-        bigint vote_id FK
-        bigint user_id FK
+    VOTE_MEMBERSHIP {
+        bigint id
         string status
         int joined_code_version
         datetime joined_at
         datetime left_at
     }
 
-    VoteDeletionLog {
-        bigint id PK
-        bigint vote_id
-        bigint operator_id FK
-        string vote_title
-        string reason
-        datetime deleted_at
-    }
-
-    AdminAuditLog {
-        bigint id PK
-        bigint operator_id
-        string operator_role
-        string action
-        string target_type
-        string target_id
-        boolean confirmed
-        datetime created_at
-    }
-
-    User ||--o{ Vote : creates
-    Vote ||--o{ VoteOption : contains
-    User ||--o{ VoteOption : adds
-    User ||--o{ VoteRecord : submits
-    Vote ||--o{ VoteRecord : receives
-    VoteOption ||--o{ VoteRecord : records
-    Vote ||--o| VoteInvite : configures
-    User ||--o{ VoteInvite : resets
-    User ||--o{ VoteMembership : joins
-    Vote ||--o{ VoteMembership : has_members
-    User ||--o{ VoteDeletionLog : deletes
+    USER ||--o{ VOTE : creates
+    VOTE ||--o{ VOTE_OPTION : contains
+    USER ||--o{ VOTE_OPTION : adds
+    USER ||--o{ VOTE_RECORD : submits
+    VOTE ||--o{ VOTE_RECORD : receives
+    VOTE_OPTION ||--o{ VOTE_RECORD : records
+    VOTE ||--o| VOTE_INVITE : has
+    USER ||--o{ VOTE_MEMBERSHIP : joins
+    VOTE ||--o{ VOTE_MEMBERSHIP : has_members
 ```
+
+说明：
+
+- 上图展示投票主链路的核心实体。
+- `AdminAuditLog`、`VoteDeletionLog` 属于辅助日志表，未放入主 ER 图中。
 
 ## 技术栈
 
