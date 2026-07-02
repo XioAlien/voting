@@ -1,8 +1,7 @@
 import React from 'react'
 import { App as AntdApp, Spin } from 'antd'
-import { useNavigate } from 'react-router-dom'
-import { hasStoredToken, probeAdminAccess } from '../lib/auth'
-import { logDevError } from '../lib/errors'
+import { useNavigate, useOutletContext } from 'react-router-dom'
+import type { LayoutOutletContext } from './Layout'
 
 interface AdminAccessRouteProps {
   children: React.ReactNode
@@ -11,59 +10,37 @@ interface AdminAccessRouteProps {
 const AdminAccessRoute: React.FC<AdminAccessRouteProps> = ({ children }) => {
   const navigate = useNavigate()
   const { message } = AntdApp.useApp()
-  const [checking, setChecking] = React.useState(true)
-  const [allowed, setAllowed] = React.useState(false)
+  const { isAdmin, isAdminChecking, isLoggedIn } = useOutletContext<LayoutOutletContext>()
+  const redirectedRef = React.useRef<'login' | 'home' | null>(null)
 
   React.useEffect(() => {
-    let active = true
+    if (isAdminChecking) {
+      redirectedRef.current = null
+      return
+    }
 
-    const verifyAccess = async () => {
-      if (!hasStoredToken()) {
+    if (!isLoggedIn) {
+      if (redirectedRef.current !== 'login') {
+        redirectedRef.current = 'login'
         message.warning('请先登录')
         navigate('/login', { replace: true })
-        if (active) {
-          setChecking(false)
-        }
-        return
       }
+      return
+    }
 
-      try {
-        const isAdmin = await probeAdminAccess()
-        if (!active) {
-          return
-        }
-
-        if (!isAdmin) {
-          message.warning('无权限访问')
-          navigate('/', { replace: true })
-          setAllowed(false)
-          setChecking(false)
-          return
-        }
-
-        setAllowed(true)
-      } catch (error) {
-        logDevError('admin-route', error)
-        if (!active) {
-          return
-        }
-        message.error('页面暂时不可用')
+    if (!isAdmin) {
+      if (redirectedRef.current !== 'home') {
+        redirectedRef.current = 'home'
+        message.warning('无权限访问')
         navigate('/', { replace: true })
-      } finally {
-        if (active) {
-          setChecking(false)
-        }
       }
+      return
     }
 
-    void verifyAccess()
+    redirectedRef.current = null
+  }, [isAdmin, isAdminChecking, isLoggedIn, message, navigate])
 
-    return () => {
-      active = false
-    }
-  }, [navigate])
-
-  if (checking) {
+  if (isAdminChecking) {
     return (
       <div className="py-12 text-center">
         <Spin size="large" />
@@ -71,7 +48,7 @@ const AdminAccessRoute: React.FC<AdminAccessRouteProps> = ({ children }) => {
     )
   }
 
-  if (!allowed) {
+  if (!isLoggedIn || !isAdmin) {
     return null
   }
 

@@ -64,7 +64,7 @@ const UserManagementPanel: React.FC = () => {
   const [updatingUserId, setUpdatingUserId] = React.useState<number | null>(null)
 
   const fetchUsers = React.useCallback(
-    async (page = current, size = pageSize, nextKeyword = keyword) => {
+    async (page: number, size: number, nextKeyword: string) => {
       setLoading(true)
       try {
         const res = await http.get<ApiEnvelope<UserPageData>>('/api/admin/users', {
@@ -90,12 +90,12 @@ const UserManagementPanel: React.FC = () => {
         setLoading(false)
       }
     },
-    [current, keyword, pageSize],
+    [message],
   )
 
   React.useEffect(() => {
-    void fetchUsers(1, pageSize, keyword)
-  }, [fetchUsers, keyword, pageSize])
+    void fetchUsers(current, pageSize, keyword)
+  }, [current, fetchUsers, keyword, pageSize])
 
   const handleSearch = () => {
     setCurrent(1)
@@ -231,7 +231,10 @@ const UserManagementPanel: React.FC = () => {
           showSizeChanger: true,
         }}
         onChange={(pagination) => {
-          void fetchUsers(pagination.current || 1, pagination.pageSize || pageSize, keyword)
+          const nextCurrent = pagination.current || 1
+          const nextPageSize = pagination.pageSize || pageSize
+          setCurrent(nextCurrent)
+          setPageSize(nextPageSize)
         }}
       />
     </Card>

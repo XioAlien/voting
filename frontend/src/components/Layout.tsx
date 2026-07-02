@@ -6,11 +6,18 @@ import { logDevError } from '../lib/errors'
 
 const { Header, Content, Footer } = AntLayout
 
+export interface LayoutOutletContext {
+  isAdmin: boolean
+  isAdminChecking: boolean
+  isLoggedIn: boolean
+}
+
 const Layout: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { message } = AntdApp.useApp()
   const [isAdmin, setIsAdmin] = React.useState(false)
+  const [isAdminChecking, setIsAdminChecking] = React.useState(false)
   const [authVersion, setAuthVersion] = React.useState(0)
   const isLoggedIn = hasStoredToken()
 
@@ -18,10 +25,13 @@ const Layout: React.FC = () => {
     let active = true
 
     const detectAdmin = async () => {
-      if (!hasStoredToken()) {
+      if (!isLoggedIn) {
         setIsAdmin(false)
+        setIsAdminChecking(false)
         return
       }
+
+      setIsAdminChecking(true)
 
       try {
         const result = await probeAdminAccess()
@@ -33,6 +43,10 @@ const Layout: React.FC = () => {
         if (active) {
           setIsAdmin(false)
         }
+      } finally {
+        if (active) {
+          setIsAdminChecking(false)
+        }
       }
     }
 
@@ -41,7 +55,7 @@ const Layout: React.FC = () => {
     return () => {
       active = false
     }
-  }, [location.pathname, authVersion])
+  }, [authVersion, isLoggedIn])
 
   const handleLogout = () => {
     clearStoredToken()
@@ -57,13 +71,13 @@ const Layout: React.FC = () => {
     ...(isAdmin ? [{ key: 'admin', label: '管理后台', onClick: () => navigate('/admin') }] : []),
     isLoggedIn
       ? {
-          key: 'logout',
-          label: (
-            <Button type="link" className="!px-0" onClick={handleLogout}>
-              退出登录
-            </Button>
-          ),
-        }
+        key: 'logout',
+        label: (
+          <Button type="link" className="!px-0" onClick={handleLogout}>
+            退出登录
+          </Button>
+        ),
+      }
       : { key: 'login', label: '登录', onClick: () => navigate('/login') },
   ]
 
@@ -75,7 +89,7 @@ const Layout: React.FC = () => {
         ? 'login'
         : !isLoggedIn
           ? 'home'
-        : 'home'
+          : 'home'
 
   return (
     <AntLayout className="min-h-screen">
@@ -91,7 +105,7 @@ const Layout: React.FC = () => {
         />
       </Header>
       <Content className="p-8 max-w-7xl mx-auto w-full mt-6 bg-white rounded-lg shadow-sm">
-        <Outlet />
+        <Outlet context={{ isAdmin, isAdminChecking, isLoggedIn }} />
       </Content>
       <Footer className="text-center text-gray-500 mt-auto">
         VoteSystem ©2026

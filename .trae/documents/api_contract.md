@@ -236,11 +236,31 @@
 
 ## 5. 管理员接口
 
-### 5.1 概览与确认令牌
+### 5.1 访问校验、概览与确认令牌
 
+- `GET /api/admin/access`
 - `GET /api/admin/dashboard`
 - `POST /api/admin/confirm`
 - `POST /api/admin/confirmations`：兼容别名
+
+说明：
+
+- `GET /api/admin/access` 是轻量权限探针，仅用于判断当前登录用户是否具备管理员访问权限。
+- 该接口适合前端菜单显示、路由守卫、后台入口可见性判断等场景。
+- `GET /api/admin/dashboard` 用于真正加载管理员后台统计数据，不再兼做权限探测。
+- 上述接口都要求管理员权限；未登录或无权限时返回 `401 / 403`。
+
+`GET /api/admin/access` 成功响应示例：
+
+```json
+{
+  "success": true,
+  "message": "获取成功",
+  "data": {
+    "allowed": true
+  }
+}
+```
 
 确认令牌成功响应示例：
 

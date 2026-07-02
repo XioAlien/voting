@@ -72,6 +72,10 @@ public class AdminService {
         adminAuditLogRepository.count());
   }
 
+  public void verifyAccess(UserPrincipal principal) {
+    requireAdmin(principal);
+  }
+
   public AdminUserPageDto getUsers(UserPrincipal principal, int page, int size, String keyword) {
     requireAdmin(principal);
 

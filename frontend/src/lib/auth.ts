@@ -35,7 +35,7 @@ export async function probeAdminAccess() {
   }
 
   try {
-    const res = await http.get<ApiEnvelope<unknown>>('/api/admin/dashboard')
+    const res = await http.get<ApiEnvelope<{ allowed?: boolean }>>('/api/admin/access')
     return Boolean(res.data?.success)
   } catch (error) {
     const status = (error as { response?: { status?: number } })?.response?.status
