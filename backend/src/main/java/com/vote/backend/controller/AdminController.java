@@ -43,6 +43,12 @@ public class AdminController {
     this.adminConfirmationService = adminConfirmationService;
   }
 
+  @GetMapping("/access")
+  public ApiResponse<Map<String, Boolean>> getAccess(@AuthenticationPrincipal UserPrincipal principal) {
+    adminService.verifyAccess(principal);
+    return ApiResponse.success("获取成功", Map.of("allowed", true));
+  }
+
   @GetMapping("/dashboard")
   public ApiResponse<AdminDashboardDto> getDashboard(@AuthenticationPrincipal UserPrincipal principal) {
     return ApiResponse.success("获取成功", adminService.getDashboard(principal));

@@ -1,4 +1,5 @@
 import http from '../api/http'
+import { getEnvelopeErrorMessage, getUserFacingErrorMessage } from './errors'
 
 const TOKEN_KEY = 'token'
 
@@ -25,15 +26,7 @@ export function clearStoredToken() {
 }
 
 export function getApiErrorMessage(error: unknown, fallback: string) {
-  const maybeError = error as {
-    response?: {
-      data?: {
-        message?: string
-      }
-    }
-  }
-
-  return maybeError?.response?.data?.message || fallback
+  return getUserFacingErrorMessage(error, fallback)
 }
 
 export async function probeAdminAccess() {
@@ -42,7 +35,7 @@ export async function probeAdminAccess() {
   }
 
   try {
-    const res = await http.get<ApiEnvelope<unknown>>('/api/admin/dashboard')
+    const res = await http.get<ApiEnvelope<{ allowed?: boolean }>>('/api/admin/access')
     return Boolean(res.data?.success)
   } catch (error) {
     const status = (error as { response?: { status?: number } })?.response?.status
@@ -61,7 +54,7 @@ export async function issueAdminConfirmToken(action: string, target: string) {
 
   const token = res.data?.data?.token
   if (!res.data?.success || !token) {
-    throw new Error(res.data?.message || '获取确认令牌失败')
+    throw new Error(getEnvelopeErrorMessage(res.data?.message, '获取确认信息失败'))
   }
 
   return token

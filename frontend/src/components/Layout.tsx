@@ -1,11 +1,95 @@
-import React from 'react';
-import { Layout as AntLayout, Menu } from 'antd';
-import { Outlet, useNavigate } from 'react-router-dom';
+import React from 'react'
+import { App as AntdApp, Button, Layout as AntLayout, Menu } from 'antd'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { clearStoredToken, hasStoredToken, probeAdminAccess } from '../lib/auth'
+import { logDevError } from '../lib/errors'
 
-const { Header, Content, Footer } = AntLayout;
+const { Header, Content, Footer } = AntLayout
+
+export interface LayoutOutletContext {
+  isAdmin: boolean
+  isAdminChecking: boolean
+  isLoggedIn: boolean
+}
 
 const Layout: React.FC = () => {
-  const navigate = useNavigate();
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { message } = AntdApp.useApp()
+  const [isAdmin, setIsAdmin] = React.useState(false)
+  const [isAdminChecking, setIsAdminChecking] = React.useState(false)
+  const [authVersion, setAuthVersion] = React.useState(0)
+  const isLoggedIn = hasStoredToken()
+
+  React.useEffect(() => {
+    let active = true
+
+    const detectAdmin = async () => {
+      if (!isLoggedIn) {
+        setIsAdmin(false)
+        setIsAdminChecking(false)
+        return
+      }
+
+      setIsAdminChecking(true)
+
+      try {
+        const result = await probeAdminAccess()
+        if (active) {
+          setIsAdmin(result)
+        }
+      } catch (error) {
+        logDevError('layout-admin-check', error)
+        if (active) {
+          setIsAdmin(false)
+        }
+      } finally {
+        if (active) {
+          setIsAdminChecking(false)
+        }
+      }
+    }
+
+    void detectAdmin()
+
+    return () => {
+      active = false
+    }
+  }, [authVersion, isLoggedIn])
+
+  const handleLogout = () => {
+    clearStoredToken()
+    setIsAdmin(false)
+    setAuthVersion((value) => value + 1)
+    message.success('已退出登录')
+    navigate('/')
+  }
+
+  const items = [
+    { key: 'home', label: '首页', onClick: () => navigate('/') },
+    { key: 'create', label: '创建投票', onClick: () => navigate('/create') },
+    ...(isAdmin ? [{ key: 'admin', label: '管理后台', onClick: () => navigate('/admin') }] : []),
+    isLoggedIn
+      ? {
+        key: 'logout',
+        label: (
+          <Button type="link" className="!px-0" onClick={handleLogout}>
+            退出登录
+          </Button>
+        ),
+      }
+      : { key: 'login', label: '登录', onClick: () => navigate('/login') },
+  ]
+
+  const selectedKey = location.pathname.startsWith('/admin')
+    ? 'admin'
+    : location.pathname.startsWith('/create')
+      ? 'create'
+      : location.pathname.startsWith('/login')
+        ? 'login'
+        : !isLoggedIn
+          ? 'home'
+          : 'home'
 
   return (
     <AntLayout className="min-h-screen">
@@ -15,23 +99,19 @@ const Layout: React.FC = () => {
         </div>
         <Menu
           mode="horizontal"
-          defaultSelectedKeys={['home']}
-          items={[
-            { key: 'home', label: '首页', onClick: () => navigate('/') },
-            { key: 'admin', label: '管理后台', onClick: () => navigate('/admin') },
-            { key: 'login', label: '登录', onClick: () => navigate('/login') }
-          ]}
+          selectedKeys={[selectedKey]}
+          items={items}
           className="flex-1 border-none"
         />
       </Header>
       <Content className="p-8 max-w-7xl mx-auto w-full mt-6 bg-white rounded-lg shadow-sm">
-        <Outlet />
+        <Outlet context={{ isAdmin, isAdminChecking, isLoggedIn }} />
       </Content>
       <Footer className="text-center text-gray-500 mt-auto">
-        VoteSystem ©2026 Created by Web Development Agent
+        VoteSystem ©2026
       </Footer>
     </AntLayout>
-  );
-};
+  )
+}
 
-export default Layout;
+export default Layout

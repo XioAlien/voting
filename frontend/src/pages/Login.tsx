@@ -1,7 +1,8 @@
 import React from 'react';
-import { Card, Form, Input, Button, Typography, message } from 'antd';
-import { useNavigate } from 'react-router-dom';
+import { App as AntdApp, Card, Form, Input, Button, Typography } from 'antd';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import http from '../api/http';
+import { getEnvelopeErrorMessage } from '../lib/errors';
 
 const { Title } = Typography;
 
@@ -12,7 +13,10 @@ interface LoginFormValues {
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { message } = AntdApp.useApp();
   const [loading, setLoading] = React.useState(false);
+  const redirect = searchParams.get('redirect') || '/';
 
   const onFinish = async (values: LoginFormValues) => {
     setLoading(true);
@@ -25,10 +29,10 @@ const Login: React.FC = () => {
         localStorage.setItem('token', res.data.data.token);
         message.success('登录成功');
         setTimeout(() => {
-          navigate('/');
+          navigate(redirect);
         }, 500);
       } else {
-        message.error(res.data?.message || '登录失败');
+        message.error(getEnvelopeErrorMessage(res.data?.message, '登录失败'));
       }
     } catch {
       message.error('用户名或密码错误');
@@ -75,7 +79,13 @@ const Login: React.FC = () => {
 
           <div className="text-center mt-4">
             <span className="text-gray-500">还没有账号？</span>
-            <Button type="link" onClick={() => navigate('/register')} className="px-1">立即注册</Button>
+            <Button
+              type="link"
+              onClick={() => navigate(`/register?redirect=${encodeURIComponent(redirect)}`)}
+              className="px-1"
+            >
+              立即注册
+            </Button>
           </div>
         </Form>
       </Card>

@@ -1,7 +1,8 @@
 import React from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { ConfigProvider, theme } from 'antd'
+import { App as AntdApp, ConfigProvider, theme } from 'antd'
 import Layout from './components/Layout'
+import AdminAccessRoute from './components/AdminAccessRoute'
 import Home from './pages/Home'
 import VoteDetail from './pages/VoteDetail'
 import Login from './pages/Login'
@@ -18,17 +19,27 @@ function App() {
         },
       }}
     >
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Home />} />
-            <Route path="vote/:id" element={<VoteDetail />} />
-            <Route path="admin" element={<Admin />} />
-          </Route>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-        </Routes>
-      </BrowserRouter>
+      <AntdApp>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Layout />}>
+              <Route index element={<Home />} />
+              <Route path="create" element={<Admin />} />
+              <Route path="vote/:id" element={<VoteDetail />} />
+              <Route
+                path="admin"
+                element={
+                  <AdminAccessRoute>
+                    <Admin showAdminModules />
+                  </AdminAccessRoute>
+                }
+              />
+            </Route>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+          </Routes>
+        </BrowserRouter>
+      </AntdApp>
     </ConfigProvider>
   )
 }

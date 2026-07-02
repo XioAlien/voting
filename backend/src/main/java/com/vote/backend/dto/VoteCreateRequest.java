@@ -25,6 +25,9 @@ public class VoteCreateRequest {
   @Pattern(regexp = "CHOICE|SLIDER", message = "投票类型不合法")
   private String type = "CHOICE";
 
+  @Pattern(regexp = "PUBLIC|INVITE", message = "访问方式不合法")
+  private String accessType = "PUBLIC";
+
   @Min(value = 1, message = "最少选择数不能小于1")
   private Integer minChoices = 1;
 
@@ -33,6 +36,10 @@ public class VoteCreateRequest {
   private Integer maxChoices = 1;
   private Boolean forceAllOptions = false;
   private Boolean allowCustomOptions = false;
+  @Min(value = 1, message = "最大成员数必须大于0")
+  @Max(value = 100000, message = "最大成员数不能超过100000")
+  private Integer inviteMaxMembers;
+  private LocalDateTime inviteExpiresAt;
 
   @NotEmpty(message = "至少需要一个选项")
   @Valid

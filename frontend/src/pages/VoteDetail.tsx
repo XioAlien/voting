@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import {
+  App as AntdApp,
   Alert,
   Button,
   Card,
@@ -17,11 +18,11 @@ import {
   Switch,
   Tag,
   Typography,
-  message,
 } from 'antd'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import http from '../api/http'
 import { getApiErrorMessage, hasStoredToken } from '../lib/auth'
+import { getEnvelopeErrorMessage } from '../lib/errors'
 
 const { Title, Paragraph, Text } = Typography
 
@@ -84,9 +85,29 @@ function toLocalDateTimeInputValue(value?: string | null) {
   return new Date(date.getTime() - offset).toISOString().slice(0, 16)
 }
 
+async function copyText(
+  text: string,
+  successMessage: string,
+  messageApi: ReturnType<typeof AntdApp.useApp>['message'],
+) {
+  if (!text) {
+    messageApi.warning('暂无可复制内容')
+    return
+  }
+
+  try {
+    await navigator.clipboard.writeText(text)
+    messageApi.success(successMessage)
+  } catch {
+    messageApi.error('复制失败，请手动复制')
+  }
+}
+
 const VoteDetail: React.FC = () => {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { message } = AntdApp.useApp()
+  const [searchParams] = useSearchParams()
   const [selectedOption, setSelectedOption] = useState<number | null>(null)
   const [selectedOptions, setSelectedOptions] = useState<number[]>([])
   const [optionScores, setOptionScores] = useState<Record<number, number>>({})
@@ -106,7 +127,20 @@ const VoteDetail: React.FC = () => {
   const [inviteEnabled, setInviteEnabled] = useState(false)
   const [inviteMaxMembers, setInviteMaxMembers] = useState<number>(100)
   const [inviteExpiresAt, setInviteExpiresAt] = useState('')
+  const [prefilledInviteCode, setPrefilledInviteCode] = useState('')
   const isLoggedIn = hasStoredToken()
+  const inviteFromLink = searchParams.get('invite')?.trim() || ''
+  const currentRelativeUrl = `${window.location.pathname}${window.location.search}`
+  const loginRedirectUrl = `/login?redirect=${encodeURIComponent(currentRelativeUrl)}`
+  const registerRedirectUrl = `/register?redirect=${encodeURIComponent(currentRelativeUrl)}`
+  const managerInviteLink = inviteInfo?.code ? `${window.location.origin}/vote/${id}?invite=${inviteInfo.code}` : ''
+
+  useEffect(() => {
+    if (inviteFromLink && inviteFromLink !== prefilledInviteCode) {
+      setInviteCode(inviteFromLink)
+      setPrefilledInviteCode(inviteFromLink)
+    }
+  }, [inviteFromLink, prefilledInviteCode])
 
   useEffect(() => {
     if (!inviteInfo) {
@@ -133,7 +167,7 @@ const VoteDetail: React.FC = () => {
       if (res.data?.success) {
         setInviteInfo(res.data.data)
       } else if (!silent) {
-        message.error(res.data?.message || '获取邀请码信息失败')
+        message.error(getEnvelopeErrorMessage(res.data?.message, '获取邀请码信息失败'))
       }
     } catch (error) {
       const status = (error as { response?: { status?: number } })?.response?.status
@@ -164,7 +198,7 @@ const VoteDetail: React.FC = () => {
         setVoteNotFound(false)
         await fetchInviteInfo(true)
       } else {
-        message.error(`获取详情失败: ${res.data?.message || '未知错误'}`)
+        message.error(getEnvelopeErrorMessage(res.data?.message, '获取详情失败'))
       }
     } catch (error) {
       const status = (error as { response?: { status?: number } })?.response?.status
@@ -194,7 +228,7 @@ const VoteDetail: React.FC = () => {
     }
 
     if (!isLoggedIn) {
-      navigate('/login')
+      navigate(loginRedirectUrl)
       return
     }
 
@@ -214,7 +248,7 @@ const VoteDetail: React.FC = () => {
         setInviteCode('')
         await fetchVoteDetail()
       } else {
-        message.error(res.data?.message || '加入投票失败')
+        message.error(getEnvelopeErrorMessage(res.data?.message, '加入投票失败'))
       }
     } catch (error) {
       message.error(getApiErrorMessage(error, '加入投票失败'))
@@ -245,7 +279,7 @@ const VoteDetail: React.FC = () => {
         message.success('邀请码设置已更新')
         setInviteInfo(res.data.data)
       } else {
-        message.error(res.data?.message || '保存邀请码设置失败')
+        message.error(getEnvelopeErrorMessage(res.data?.message, '保存邀请码设置失败'))
       }
     } catch (error) {
       message.error(getApiErrorMessage(error, '保存邀请码设置失败'))
@@ -266,7 +300,7 @@ const VoteDetail: React.FC = () => {
         message.success('邀请码已重置')
         setInviteInfo(res.data.data)
       } else {
-        message.error(res.data?.message || '重置邀请码失败')
+        message.error(getEnvelopeErrorMessage(res.data?.message, '重置邀请码失败'))
       }
     } catch (error) {
       message.error(getApiErrorMessage(error, '重置邀请码失败'))
@@ -308,7 +342,7 @@ const VoteDetail: React.FC = () => {
         message.success('投票成功')
         await fetchVoteDetail()
       } else {
-        message.error(res.data?.message || '投票失败')
+        message.error(getEnvelopeErrorMessage(res.data?.message, '投票失败'))
       }
     } catch (error) {
       message.error(getApiErrorMessage(error, '投票失败，请稍后重试'))
@@ -340,7 +374,7 @@ const VoteDetail: React.FC = () => {
         setNewOptionText('')
         await fetchVoteDetail()
       } else {
-        message.error(res.data?.message || '选项添加失败')
+        message.error(getEnvelopeErrorMessage(res.data?.message, '选项添加失败'))
       }
     } catch (error) {
       message.error(getApiErrorMessage(error, '选项添加失败，请重试'))
@@ -372,32 +406,56 @@ const VoteDetail: React.FC = () => {
           <Paragraph className="text-gray-500">
             当前账号尚未具备该投票的访问资格。登录后输入邀请码即可加入，加入成功后会自动恢复详情访问。
           </Paragraph>
+          {inviteFromLink ? (
+            <Alert
+              type="info"
+              showIcon
+              className="mb-4"
+              title="已自动填入邀请信息"
+              description="确认登录后可直接点击“加入投票”。"
+            />
+          ) : null}
 
           {!isLoggedIn ? (
             <Alert
               type="info"
               showIcon
-              message="请先登录"
-              description="邀请码加入接口会继续复用当前 token 存储与 `http.ts` 自动注入逻辑。"
+              title="请先登录"
+              description={inviteFromLink ? '登录后会返回当前页面，可直接继续加入。' : '登录后输入邀请码即可加入该投票。'}
               action={
-                <Button type="primary" onClick={() => navigate('/login')}>
-                  去登录
-                </Button>
+                <Space>
+                  <Button type="primary" onClick={() => navigate(loginRedirectUrl)}>
+                    去登录
+                  </Button>
+                  <Button onClick={() => navigate(registerRedirectUrl)}>
+                    去注册
+                  </Button>
+                </Space>
               }
             />
           ) : (
-            <Space.Compact className="w-full">
-              <Input
-                placeholder="请输入邀请码"
-                value={inviteCode}
-                onChange={(event) => setInviteCode(event.target.value)}
-                onPressEnter={handleJoinVote}
-                maxLength={32}
-              />
-              <Button type="primary" loading={joining} onClick={handleJoinVote}>
-                加入投票
-              </Button>
-            </Space.Compact>
+            <div className="space-y-4">
+              <Space.Compact className="w-full">
+                <Input
+                  placeholder="请输入邀请码"
+                  value={inviteCode}
+                  onChange={(event) => setInviteCode(event.target.value)}
+                  onPressEnter={handleJoinVote}
+                  maxLength={32}
+                />
+                <Button type="primary" loading={joining} onClick={handleJoinVote}>
+                  加入投票
+                </Button>
+              </Space.Compact>
+              <div className="flex items-center justify-between text-sm text-gray-500">
+                <span>{inviteFromLink ? '已从邀请链接带入邀请码，可直接加入。' : '没有邀请码时可向发起人索取。'}</span>
+                {inviteFromLink ? (
+                  <Button type="link" onClick={() => setInviteCode('')} className="!px-0">
+                    清空重填
+                  </Button>
+                ) : null}
+              </div>
+            </div>
           )}
         </Card>
       </div>
@@ -414,7 +472,7 @@ const VoteDetail: React.FC = () => {
         &larr; 返回列表
       </Button>
 
-      {inviteInfo ? (
+      {inviteInfo && (inviteInfo.accessType === 'INVITE' || inviteInfo.enabled) ? (
         <Card
           title="邀请码管理"
           loading={inviteLoading}
@@ -426,6 +484,15 @@ const VoteDetail: React.FC = () => {
             </Descriptions.Item>
             <Descriptions.Item label="邀请码">
               {inviteInfo.code || inviteInfo.codeMasked || '尚未生成'}
+            </Descriptions.Item>
+            <Descriptions.Item label="邀请链接">
+              {managerInviteLink ? (
+                <Typography.Paragraph copyable={{ text: managerInviteLink }} className="!mb-0">
+                  {managerInviteLink}
+                </Typography.Paragraph>
+              ) : (
+                '尚未生成'
+              )}
             </Descriptions.Item>
             <Descriptions.Item label="活跃成员">
               {inviteInfo.activeMembers ?? 0} / {inviteInfo.maxMembers ?? '未限制'}
@@ -469,6 +536,16 @@ const VoteDetail: React.FC = () => {
             <Button loading={resettingInvite} onClick={handleResetInviteCode}>
               重置邀请码
             </Button>
+            {inviteInfo.code ? (
+              <Button onClick={() => void copyText(inviteInfo.code || '', '邀请码已复制', message)}>
+                复制邀请码
+              </Button>
+            ) : null}
+            {managerInviteLink ? (
+              <Button onClick={() => void copyText(managerInviteLink, '邀请链接已复制', message)}>
+                复制邀请链接
+              </Button>
+            ) : null}
             <Text type="secondary">留空过期时间时会保留当前后端已有值。</Text>
           </Space>
         </Card>
@@ -477,6 +554,15 @@ const VoteDetail: React.FC = () => {
       <Card>
         <Title level={3}>{voteData.title}</Title>
         <Paragraph className="text-gray-500">{voteData.description}</Paragraph>
+        {inviteFromLink ? (
+          <Alert
+            type="info"
+            showIcon
+            className="mb-4"
+            title="你是通过邀请链接进入的"
+            description="当前页面已识别邀请信息；如果该投票需要加入权限，可在受限提示或下方管理区继续使用。"
+          />
+        ) : null}
 
         <div className="mt-8">
           {!voteData.hasVoted && voteData.status === 'active' ? (

@@ -1,10 +1,10 @@
 import React from 'react'
 import {
+  App as AntdApp,
   Alert,
   Button,
   Card,
   Input,
-  message,
   Popconfirm,
   Space,
   Table,
@@ -14,6 +14,7 @@ import {
 import type { TableProps } from 'antd'
 import http from '../api/http'
 import { getApiErrorMessage, issueAdminConfirmToken } from '../lib/auth'
+import { getEnvelopeErrorMessage } from '../lib/errors'
 
 const { Text } = Typography
 
@@ -52,6 +53,7 @@ function formatDate(value?: string | null) {
 }
 
 const UserManagementPanel: React.FC = () => {
+  const { message } = AntdApp.useApp()
   const [users, setUsers] = React.useState<AdminUser[]>([])
   const [loading, setLoading] = React.useState(true)
   const [keywordInput, setKeywordInput] = React.useState('')
@@ -62,7 +64,7 @@ const UserManagementPanel: React.FC = () => {
   const [updatingUserId, setUpdatingUserId] = React.useState<number | null>(null)
 
   const fetchUsers = React.useCallback(
-    async (page = current, size = pageSize, nextKeyword = keyword) => {
+    async (page: number, size: number, nextKeyword: string) => {
       setLoading(true)
       try {
         const res = await http.get<ApiEnvelope<UserPageData>>('/api/admin/users', {
@@ -81,19 +83,19 @@ const UserManagementPanel: React.FC = () => {
           return
         }
 
-        message.error(res.data?.message || '获取用户列表失败')
+        message.error(getEnvelopeErrorMessage(res.data?.message, '获取用户列表失败'))
       } catch (error) {
         message.error(getApiErrorMessage(error, '获取用户列表失败'))
       } finally {
         setLoading(false)
       }
     },
-    [current, keyword, pageSize],
+    [message],
   )
 
   React.useEffect(() => {
-    void fetchUsers(1, pageSize, keyword)
-  }, [fetchUsers, keyword, pageSize])
+    void fetchUsers(current, pageSize, keyword)
+  }, [current, fetchUsers, keyword, pageSize])
 
   const handleSearch = () => {
     setCurrent(1)
@@ -115,7 +117,7 @@ const UserManagementPanel: React.FC = () => {
         return
       }
 
-      message.error(res.data?.message || '更新用户角色失败')
+      message.error(getEnvelopeErrorMessage(res.data?.message, '更新用户角色失败'))
     } catch (error) {
       message.error(getApiErrorMessage(error, '更新用户角色失败'))
     } finally {
@@ -175,7 +177,7 @@ const UserManagementPanel: React.FC = () => {
         return (
           <Popconfirm
             title={`确认${actionLabel}？`}
-            description="该操作会先申请一次确认令牌，再调用管理员接口完成角色更新。"
+            description="该操作需要二次确认。"
             onConfirm={() => handleRoleChange(record, nextRole)}
             okText="确认"
             cancelText="取消"
@@ -214,7 +216,7 @@ const UserManagementPanel: React.FC = () => {
         type="info"
         showIcon
         className="mb-4"
-        message="当前后端已稳定支持角色调整；禁用、删除用户仍受实体语义限制，前端只开放可用能力。"
+        title="当前支持调整用户角色，更多用户管理能力后续开放。"
       />
 
       <Table<AdminUser>
@@ -229,7 +231,10 @@ const UserManagementPanel: React.FC = () => {
           showSizeChanger: true,
         }}
         onChange={(pagination) => {
-          void fetchUsers(pagination.current || 1, pagination.pageSize || pageSize, keyword)
+          const nextCurrent = pagination.current || 1
+          const nextPageSize = pagination.pageSize || pageSize
+          setCurrent(nextCurrent)
+          setPageSize(nextPageSize)
         }}
       />
     </Card>

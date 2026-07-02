@@ -20,13 +20,15 @@
 - `open-in-view: false`
 - JWT 通过环境变量 `JWT_SECRET` 注入
 - Redis 通过 `REDIS_*` 环境变量配置
-- CORS 默认允许：
+- `application.yml` 的基础默认 CORS 仅允许：
   - `http://localhost:5173`
   - `http://127.0.0.1:5173`
+- 按仓库推荐方式复制 `backend/.env.example` 后，本地常见配置还会额外放开：
+  - `http://localhost:*`
+  - `http://127.0.0.1:*`
 
 开发示例配置文件：
 
-- `backend/src/main/resources/application-dev.example.yml`
 - `backend/src/main/resources/application-local.example.yml`
 
 

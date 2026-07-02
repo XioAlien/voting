@@ -4,6 +4,8 @@ import com.vote.backend.controller.ApiException;
 import com.vote.backend.dto.AdminConfirmRequest;
 import com.vote.backend.dto.AdminDashboardDto;
 import com.vote.backend.dto.AdminUserStatusUpdateRequest;
+import com.vote.backend.dto.OptionRequest;
+import com.vote.backend.dto.VoteCreateRequest;
 import com.vote.backend.dto.VoteInviteDto;
 import com.vote.backend.dto.VoteJoinRequest;
 import com.vote.backend.dto.VoteJoinResultDto;
@@ -89,6 +91,7 @@ class AdminInviteServicesTest {
         adminAuditService,
         adminConfirmationService,
         100,
+        168,
         8);
   }
 
@@ -189,6 +192,49 @@ class AdminInviteServicesTest {
   }
 
   @Test
+  void joinVoteByInviteCode_ShouldResolveVoteAndActivateMembership() {
+    User creator = new User();
+    creator.setId(10L);
+
+    Vote vote = new Vote();
+    vote.setId(12L);
+    vote.setCreator(creator);
+
+    User member = new User();
+    member.setId(2L);
+
+    VoteInvite invite = new VoteInvite();
+    invite.setVoteId(12L);
+    invite.setVote(vote);
+    invite.setEnabled(true);
+    invite.setCodeVersion(4);
+    invite.setMaxMembers(100);
+    invite.setCodeCiphertext("ZXCV6789");
+    invite.setCodeHash(hash("ZXCV6789"));
+
+    when(voteInviteRepository.findByCodeHash(hash("ZXCV6789"))).thenReturn(Optional.of(invite));
+    when(voteRepository.findById(12L)).thenReturn(Optional.of(vote));
+    when(userRepository.findById(2L)).thenReturn(Optional.of(member));
+    when(voteInviteRepository.findById(12L)).thenReturn(Optional.of(invite));
+    when(voteMembershipRepository.findByVote_IdAndUser_Id(12L, 2L)).thenReturn(Optional.empty());
+    when(voteMembershipRepository.countByVote_IdAndStatus(12L, "ACTIVE")).thenReturn(0L);
+
+    VoteJoinRequest request = new VoteJoinRequest();
+    request.setInviteCode("ZXCV6789");
+
+    VoteJoinResultDto result = voteInviteService.joinVoteByInviteCode(userPrincipal(2L, "USER"), request);
+
+    assertEquals(12L, result.getVoteId());
+    assertEquals("MEMBER", result.getRelationship());
+
+    ArgumentCaptor<com.vote.backend.entity.VoteMembership> captor = ArgumentCaptor
+        .forClass(com.vote.backend.entity.VoteMembership.class);
+    verify(voteMembershipRepository).save(captor.capture());
+    assertEquals("ACTIVE", captor.getValue().getStatus());
+    assertEquals(4, captor.getValue().getJoinedCodeVersion());
+  }
+
+  @Test
   void getInvite_ShouldUseConfiguredDefaultsWhenInviteMissing() {
     User creator = new User();
     creator.setId(1L);
@@ -220,6 +266,7 @@ class AdminInviteServicesTest {
         adminAuditService,
         adminConfirmationService,
         50,
+        72,
         10);
 
     User creator = new User();
@@ -235,7 +282,7 @@ class AdminInviteServicesTest {
     when(voteRepository.findById(8L)).thenReturn(Optional.of(vote));
     when(voteInviteRepository.findById(8L)).thenReturn(Optional.empty());
     when(userRepository.findById(1L)).thenReturn(Optional.of(admin));
-    when(voteInviteRepository.save(any(VoteInvite.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(voteInviteRepository.save(any(VoteInvite.class))).thenAnswer(invocation -> savedInvite(invocation.getArgument(0)));
     when(voteMembershipRepository.countByVote_IdAndStatus(8L, "ACTIVE")).thenReturn(0L);
 
     VoteInviteDto result = configuredService.resetInviteCode(adminPrincipal(1L), 8L);
@@ -243,6 +290,53 @@ class AdminInviteServicesTest {
     assertEquals(50, result.getMaxMembers());
     assertEquals(10, result.getCode().length());
     assertEquals("PUBLIC", result.getAccessType());
+  }
+
+  @Test
+  void prepareInviteForCreate_ShouldCreateEnabledInviteWithDefaults() {
+    User creator = new User();
+    creator.setId(1L);
+
+    Vote vote = new Vote();
+    vote.setId(9L);
+    vote.setCreator(creator);
+
+    VoteCreateRequest request = new VoteCreateRequest();
+    request.setTitle("Invite Vote");
+    request.setAccessType("INVITE");
+    request.setOptions(List.of(option("A"), option("B")));
+
+    when(voteInviteRepository.save(any(VoteInvite.class))).thenAnswer(invocation -> savedInvite(invocation.getArgument(0)));
+    VoteInvite invite = voteInviteService.prepareInviteForCreate(vote, request);
+
+    assertTrue(Boolean.TRUE.equals(invite.getEnabled()));
+    assertEquals(100, invite.getMaxMembers());
+    assertEquals(8, invite.getCodeCiphertext().length());
+    assertEquals(hash(invite.getCodeCiphertext()), invite.getCodeHash());
+    assertTrue(invite.getExpiresAt().isAfter(LocalDateTime.now().plusHours(167)));
+  }
+
+  @Test
+  void prepareInviteForCreate_ShouldKeepPublicVoteDisabledAndHideNoExpiry() {
+    User creator = new User();
+    creator.setId(1L);
+
+    Vote vote = new Vote();
+    vote.setId(10L);
+    vote.setCreator(creator);
+
+    VoteCreateRequest request = new VoteCreateRequest();
+    request.setTitle("Public Vote");
+    request.setAccessType("PUBLIC");
+    request.setOptions(List.of(option("A"), option("B")));
+
+    when(voteInviteRepository.save(any(VoteInvite.class))).thenAnswer(invocation -> savedInvite(invocation.getArgument(0)));
+    VoteInvite invite = voteInviteService.prepareInviteForCreate(vote, request);
+
+    assertTrue(Boolean.FALSE.equals(invite.getEnabled()));
+    assertEquals(100, invite.getMaxMembers());
+    assertEquals(8, invite.getCodeCiphertext().length());
+    assertEquals(null, invite.getExpiresAt());
   }
 
   private String issueToken(String action, String target) {
@@ -268,5 +362,18 @@ class AdminInviteServicesTest {
     } catch (NoSuchAlgorithmException ex) {
       throw new IllegalStateException(ex);
     }
+  }
+
+  private OptionRequest option(String text) {
+    OptionRequest option = new OptionRequest();
+    option.setText(text);
+    return option;
+  }
+
+  private VoteInvite savedInvite(VoteInvite invite) {
+    if (invite.getVoteId() == null && invite.getVote() != null) {
+      invite.setVoteId(invite.getVote().getId());
+    }
+    return invite;
   }
 }

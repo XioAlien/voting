@@ -2,6 +2,7 @@ package com.vote.backend.service;
 
 import com.vote.backend.controller.ApiException;
 import com.vote.backend.dto.VoteInviteDto;
+import com.vote.backend.dto.VoteCreateRequest;
 import com.vote.backend.dto.VoteInviteSettingsRequest;
 import com.vote.backend.dto.VoteJoinRequest;
 import com.vote.backend.dto.VoteJoinResultDto;
@@ -41,6 +42,7 @@ public class VoteInviteService {
   private final AdminAuditService adminAuditService;
   private final AdminConfirmationService adminConfirmationService;
   private final int defaultMaxMembers;
+  private final int defaultExpireHours;
   private final int inviteCodeLength;
   private final SecureRandom secureRandom = new SecureRandom();
 
@@ -52,6 +54,7 @@ public class VoteInviteService {
       AdminAuditService adminAuditService,
       AdminConfirmationService adminConfirmationService,
       @Value("${app.invite.default-max-members:100}") int defaultMaxMembers,
+      @Value("${app.invite.default-expire-hours:168}") int defaultExpireHours,
       @Value("${app.invite.code-length:8}") int inviteCodeLength) {
     this.voteRepository = voteRepository;
     this.voteInviteRepository = voteInviteRepository;
@@ -60,7 +63,33 @@ public class VoteInviteService {
     this.adminAuditService = adminAuditService;
     this.adminConfirmationService = adminConfirmationService;
     this.defaultMaxMembers = Math.max(1, defaultMaxMembers);
+    this.defaultExpireHours = Math.max(1, defaultExpireHours);
     this.inviteCodeLength = Math.max(6, inviteCodeLength);
+  }
+
+  @Transactional
+  public VoteInvite prepareInviteForCreate(Vote vote, VoteCreateRequest request) {
+    VoteInvite invite = new VoteInvite();
+    invite.setVote(vote);
+    invite.setCodeVersion(1);
+
+    String plainCode = generateInviteCode();
+    invite.setCodeHash(hashInviteCode(plainCode));
+    invite.setCodeCiphertext(plainCode);
+
+    String accessType = request == null || !StringUtils.hasText(request.getAccessType())
+        ? "PUBLIC"
+        : normalizeAccessType(request.getAccessType());
+    boolean inviteEnabled = "INVITE".equals(accessType);
+    invite.setEnabled(inviteEnabled);
+    invite.setMaxMembers(resolveMaxMembers(request == null ? null : request.getInviteMaxMembers()));
+    invite.setExpiresAt(resolveCreateExpiresAt(request == null ? null : request.getInviteExpiresAt(), inviteEnabled));
+
+    return voteInviteRepository.save(invite);
+  }
+
+  public VoteInviteDto toManagerDto(VoteInvite invite) {
+    return toDto(invite, true);
   }
 
   public VoteInviteDto getInvite(UserPrincipal principal, Long voteId) {
@@ -166,6 +195,27 @@ public class VoteInviteService {
   }
 
   @Transactional
+  public VoteJoinResultDto joinVoteByInviteCode(UserPrincipal principal, VoteJoinRequest request) {
+    if (principal == null) {
+      throw new ApiException(HttpStatus.UNAUTHORIZED, "未登录");
+    }
+
+    String inviteCode = request == null ? null : request.getInviteCode();
+    if (!StringUtils.hasText(inviteCode)) {
+      throw new ApiException(HttpStatus.BAD_REQUEST, "邀请码不能为空");
+    }
+
+    VoteInvite invite = voteInviteRepository.findByCodeHash(hashInviteCode(inviteCode.trim()))
+        .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "邀请码无效"));
+    Long voteId = resolveVoteId(invite);
+    if (voteId == null) {
+      throw new ApiException(HttpStatus.NOT_FOUND, "投票不存在");
+    }
+
+    return joinVote(principal, voteId, request);
+  }
+
+  @Transactional
   public void leaveVote(UserPrincipal principal, Long voteId) {
     if (principal == null) {
       throw new ApiException(HttpStatus.UNAUTHORIZED, "未登录");
@@ -205,8 +255,9 @@ public class VoteInviteService {
     if (invite.getExpiresAt() != null && invite.getExpiresAt().isBefore(LocalDateTime.now())) {
       throw new ApiException(HttpStatus.CONFLICT, "邀请码已过期");
     }
+    Long voteId = resolveVoteId(invite);
     if (invite.getMaxMembers() != null
-        && voteMembershipRepository.countByVote_IdAndStatus(invite.getVoteId(), "ACTIVE") >= invite.getMaxMembers()) {
+        && voteMembershipRepository.countByVote_IdAndStatus(voteId, "ACTIVE") >= invite.getMaxMembers()) {
       throw new ApiException(HttpStatus.CONFLICT, "成员数量已达上限");
     }
 
@@ -221,17 +272,18 @@ public class VoteInviteService {
   }
 
   private VoteInviteDto toDto(VoteInvite invite, boolean canViewPlainCode) {
+    Long voteId = resolveVoteId(invite);
     VoteInviteDto dto = new VoteInviteDto();
-    dto.setVoteId(invite.getVoteId());
+    dto.setVoteId(voteId);
     dto.setAccessType(requiresInvite(invite) ? "INVITE" : "PUBLIC");
     dto.setEnabled(Boolean.TRUE.equals(invite.getEnabled()));
     dto.setCodeVersion(invite.getCodeVersion());
     dto.setExpiresAt(invite.getExpiresAt());
     dto.setMaxMembers(invite.getMaxMembers());
     dto.setActiveMembers(
-        voteMembershipRepository.countByVote_IdAndStatus(invite.getVoteId(), "ACTIVE") > Integer.MAX_VALUE
+        voteMembershipRepository.countByVote_IdAndStatus(voteId, "ACTIVE") > Integer.MAX_VALUE
             ? Integer.MAX_VALUE
-            : (int) voteMembershipRepository.countByVote_IdAndStatus(invite.getVoteId(), "ACTIVE"));
+            : (int) voteMembershipRepository.countByVote_IdAndStatus(voteId, "ACTIVE"));
     dto.setCanViewPlainCode(canViewPlainCode);
 
     String plainCode = invite.getCodeCiphertext();
@@ -243,14 +295,39 @@ public class VoteInviteService {
   }
 
   private VoteInvite createDefaultInvite(Vote vote) {
+    String code = generateInviteCode();
     VoteInvite invite = new VoteInvite();
-    invite.setVoteId(vote.getId());
     invite.setVote(vote);
     invite.setEnabled(false);
     invite.setCodeVersion(1);
     invite.setMaxMembers(defaultMaxMembers);
-    invite.setCodeHash(hashInviteCode(generateInviteCode()));
+    invite.setCodeHash(hashInviteCode(code));
+    invite.setCodeCiphertext(code);
     return invite;
+  }
+
+  private Long resolveVoteId(VoteInvite invite) {
+    if (invite.getVoteId() != null) {
+      return invite.getVoteId();
+    }
+    return invite.getVote() == null ? null : invite.getVote().getId();
+  }
+
+  private Integer resolveMaxMembers(Integer requestedMaxMembers) {
+    return requestedMaxMembers == null ? defaultMaxMembers : requestedMaxMembers;
+  }
+
+  private LocalDateTime resolveCreateExpiresAt(LocalDateTime requestedExpiresAt, boolean inviteEnabled) {
+    if (requestedExpiresAt != null) {
+      if (requestedExpiresAt.isBefore(LocalDateTime.now())) {
+        throw new ApiException(HttpStatus.BAD_REQUEST, "邀请码过期时间不能早于当前时间");
+      }
+      return requestedExpiresAt;
+    }
+    if (!inviteEnabled) {
+      return null;
+    }
+    return LocalDateTime.now().plusHours(defaultExpireHours);
   }
 
   private VoteJoinResultDto buildJoinResult(Long voteId, String relationship) {

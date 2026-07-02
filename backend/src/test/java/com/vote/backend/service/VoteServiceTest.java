@@ -69,6 +69,9 @@ public class VoteServiceTest {
   private AdminConfirmationService adminConfirmationService;
 
   @Mock
+  private VoteInviteService voteInviteService;
+
+  @Mock
   private ValueOperations<String, String> valueOperations;
 
   @InjectMocks
