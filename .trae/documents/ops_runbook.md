@@ -1,6 +1,6 @@
 # 运维手册
 
-本文档只记录当前代码实际可执行的运行、打包与验证流程。
+本文档只记录当前代码实际可执行的本地运行、打包与验证流程。若目标是正式部署上线，请先阅读 `changelogs/SUMMARY.md`，再进入相关部署卡片查看方案、检查单与回滚预案。
 
 ## 1. 环境要求
 
@@ -17,6 +17,7 @@
 - 端口：`8080`
 - 字符集：强制 `UTF-8`
 - JPA：默认 `ddl-auto: validate`
+- Flyway：启动时自动执行 `db/migration` 初始化脚本
 - `open-in-view: false`
 - JWT 通过环境变量 `JWT_SECRET` 注入
 - Redis 通过 `REDIS_*` 环境变量配置
@@ -35,7 +36,8 @@
 推荐的本地准备：
 
 - 将 `backend/.env.example` 复制为 `backend/.env`
-- 首次启动或空库环境下，将 `backend/src/main/resources/application-local.example.yml` 复制为本地 `application-local.yml`
+- 默认保持 `JPA_DDL_AUTO=validate`，首次启动或空库环境由 Flyway 初始化库表
+- 若你确实需要临时覆写 JPA 建表策略，再将 `backend/src/main/resources/application-local.example.yml` 复制为本地 `application-local.yml`
 
 ## 3. 启动方式
 
@@ -45,13 +47,13 @@
 
 - MySQL 已可连通
 - `backend/.env` 已准备完成
-- 如需在首次启动或空库环境下自动更新表结构，请先在本地创建 `application-local.yml`，并覆盖 `spring.jpa.hibernate.ddl-auto`
+- 数据库账号具备执行 Flyway 初始化迁移所需权限
 
 注意：
 
+- 应用启动时会先执行 Flyway 迁移，再由 Hibernate 以 `validate` 校验表结构
 - 仅设置 `SPRING_PROFILES_ACTIVE=local` 并不会自动修改建表策略
-- 只有当本地实际存在 `application-local.yml`，且其中覆盖了 `spring.jpa.hibernate.ddl-auto`，例如 `update`，首次启动或空库场景下才会自动更新表结构
-- 若未创建该本地私有配置文件，应用仍会使用默认配置中的 `ddl-auto: validate`
+- 只有当本地实际存在 `application-local.yml`，且其中覆盖了 `spring.jpa.hibernate.ddl-auto`，例如 `update`，才会改变默认的校验策略
 
 ```powershell
 cd backend
@@ -148,7 +150,7 @@ npm run build
 - `DB_PASSWORD` 是否设置
 - `JWT_SECRET` 是否设置
 - MySQL 是否可连通
-- 若出现表不存在或 Hibernate `validate` 失败，检查是否已实际创建 `application-local.yml` 并覆盖 `ddl-auto`，或是否已经准备好库表
+- 若出现表不存在或 Hibernate `validate` 失败，检查 Flyway 迁移是否执行成功，以及数据库账号是否具备建表权限
 
 ### 7.3 Redis 不可用
 
@@ -159,8 +161,9 @@ npm run build
 
 ## 8. 当前未纳入本文档的内容
 
-以下内容在仓库中没有稳定、可直接执行的现成流程，因此未纳入当前运维手册：
+以下内容不在本文档展开，或仍未在仓库中形成现成流程：
 
+- 正式部署上线步骤、上线检查单与回滚预案（统一维护在 `changelogs/`）
 - Docker 部署
 - CI 流水线
 - Kubernetes 正式部署方案
