@@ -33,6 +33,7 @@ debug-*.md
 debug-start-dev-port.md
 AGENTS.md
 PROJECT_OVERVIEW.md
+changelogs/
 trae-debug-log-*.ndjson
 .trae/specs/
 .dbg/

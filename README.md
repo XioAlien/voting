@@ -145,7 +145,7 @@ erDiagram
 
 - 后端：Java 17, Spring Boot 3.2.4, Spring Security, Spring Data JPA, Bean Validation, JJWT, MySQL, Redis
 - 前端：React 18, TypeScript, Vite, React Router, Ant Design, Axios
-- 工具链：Maven, npm, Docker Compose（仅用于启动 MySQL / Redis 依赖）
+- 工具链：Maven, npm, Docker Compose（本地依赖编排 + 测试环境全栈一键启动）
 
 ## 项目结构
 
@@ -153,6 +153,8 @@ erDiagram
 .
 ├─ backend/                 # Spring Boot 后端
 ├─ frontend/                # React + Vite 前端
+├─ deploy/test/             # 测试环境部署模板与 Docker 编排
+├─ changelogs/              # 本地变更日志目录（已加入 .gitignore）
 ├─ docker-compose.yml       # MySQL / Redis 依赖编排
 └─ .trae/documents/         # 详细设计与运维文档
 ```
@@ -179,7 +181,8 @@ Copy-Item .env.example .env
 
 - `backend/.env` 需要填写本地数据库、Redis 和 JWT 相关配置
 - `application-dev.example.yml` 与 `application-local.example.yml` 只是模板文件；如需 profile 覆写，请先复制为本地私有配置文件再使用
-- 默认 `spring.jpa.hibernate.ddl-auto=validate`，首次启动或空库场景通常需要参考 `application-local.example.yml` 做本地覆写
+- 后端已接入 Flyway，启动时会自动执行 `backend/src/main/resources/db/migration/` 下的迁移脚本完成首版建表
+- 默认 `spring.jpa.hibernate.ddl-auto=validate`，本地空库场景不再依赖 Hibernate `update` 建表；只有在你明确需要临时覆写时，再使用本地私有 profile 配置
 
 ### 3. 启动依赖服务
 
@@ -212,6 +215,31 @@ npm run dev
 
 更完整的环境准备、配置说明和常见问题见 [.trae/documents/ops_runbook.md](.trae/documents/ops_runbook.md)。
 
+### 6. 变更与部署说明
+
+部署上线方案、上线检查单、回滚预案等临时变更性内容，统一维护在本地 `changelogs/` 中。
+只有任务已经落地且结论稳定后，才将最终结果回写到正式文档。
+
+### 7. 测试环境 Docker 一键启动
+
+如果你希望在测试机上 `clone` 仓库后用 Docker 拉起完整链路，请先显式传入测试环境口令，再执行：
+
+```bash
+export MYSQL_PASSWORD='your-test-db-password'
+export MYSQL_ROOT_PASSWORD='your-test-root-password'
+export JWT_SECRET='your-test-jwt-secret'
+export BOOTSTRAP_ADMIN_PASSWORD='your-test-admin-password'
+docker compose -f deploy/test/docker-compose.yml up -d --build
+```
+
+默认访问地址：
+
+- 前端：`http://localhost:8088/`
+
+注意：当前仓库已完成 compose 配置落盘与语法校验，镜像构建和整链路启动仍需在 Docker daemon 可用的测试机上完成最终验证。
+
+更详细的测试环境 Docker 说明见 [deploy/test/README.md](./deploy/test/README.md)。
+
 ## 当前实现范围
 
 当前已实现：
@@ -228,7 +256,7 @@ npm run dev
 当前未完整落地：
 
 - 更细粒度的独立 RBAC 权限体系
-- 应用全量 Docker 交付与 CI 自动化流水线
+- 生产环境应用 Docker 交付与 CI 自动化流水线
 - 前端自动化测试
 
 ## 前端路由
@@ -310,6 +338,45 @@ npm run build
 说明：
 
 - 当前前端没有 `npm test` 脚本，也没有落地自动化测试文件
+
+## 本地变更日志
+
+项目根目录提供本地专用的 `changelogs/` 目录，用于沉淀需求迭代、技术改造、Bug 修复、配置调整等所有变更动作。
+
+### 目录约定
+
+- 主索引文件：[`changelogs/SUMMARY.md`](./changelogs/SUMMARY.md)
+- 月归档索引：`changelogs/SUMMARY-YYYY-MM.md`
+- 记录模板：[`changelogs/TEMPLATE.md`](./changelogs/TEMPLATE.md)
+- 单条记录命名格式：`YYYYMMDD-变更核心主题关键词.md`
+
+### 操作流程
+
+1. 新建记录  
+   在 `changelogs/` 目录下按 `YYYYMMDD-变更核心主题关键词.md` 命名创建新文件，并以 [`changelogs/TEMPLATE.md`](./changelogs/TEMPLATE.md) 作为内容模板。
+
+2. 补全内容  
+   按模板补齐“卡片信息、任务板、卡片状态、收尾复盘”四个区块；同时同步更新文件头部的 `date`、`status`、`req`、`scope`、`summary` 字段，确保索引可以快速检索和关联。
+   涉及需求拆分、技术方案、部署预案、上线检查单、回滚思路等过程性内容时，也统一写在 changelog 卡片内，不单独扩散到正式文档目录。
+
+3. 更新状态  
+   每个任务项的完成状态只能使用 `未开始` / `进行中` / `已完成` / `已取消`。  
+   仅当文件内所有任务项均为 `已完成` 时，才能将整体完成状态更新为 `已完成`；否则整体状态统一保持为 `进行中`。若本次变更终止，则整体状态可标记为 `已取消`，并在复盘区说明原因。
+   如果卡片本质上是方案、预案、规划、准备清单、检查单或回滚设计，则不能因为“文档内容已经写完”就标记为 `已完成`；必须补上“真实落地/验证结果”任务，并在拿到代码、配置、运行结果或验收证据后，才允许整体完成。
+
+4. 维护索引
+   在创建记录、更新摘要或变更状态后，手动同步更新 [`changelogs/SUMMARY.md`](./changelogs/SUMMARY.md)，保证活跃索引中的日期、卡片、状态、摘要与记录正文一致。较早的已完成记录按月份迁入 `SUMMARY-YYYY-MM.md` 归档文件。
+
+5. 对齐正式文档
+   只有当任务已实际落地，并且结论能够被当前代码、配置或运行方式验证时，才把稳定结果同步到正式文档；未落地前的计划与方案一律保留在 changelog 中。
+
+### AI 协作约定
+
+- AI 工具在开始分析、编码、测试或文档修改前，应先阅读 [`changelogs/SUMMARY.md`](./changelogs/SUMMARY.md)。
+- 若 `SUMMARY.md` 中存在状态不是 `已完成` 的记录，AI 工具必须优先打开这些记录文件，先理解未完成任务与限制条件，再继续当前工作。
+- 只有在 `SUMMARY.md` 无法提供足够历史背景时，再按月份打开 `SUMMARY-YYYY-MM.md` 归档索引。
+- 若新增或更新了本地变更记录，必须同步更新 `SUMMARY.md`，保证未完成事项能够被下一次协作优先看到。
+- 检索目标记录时，优先按日期、文件名中的主题关键词和状态列联合定位。
 
 ## 文档索引
 
